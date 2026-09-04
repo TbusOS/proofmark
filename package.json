@@ -1,17 +1,30 @@
 {
-  "name": "proofmark",
+  "name": "proofmark-design",
   "version": "0.1.0",
-  "description": "Nine design languages for coding agents — and a gate that fails the output that does not match.",
+  "description": "Nine design languages for coding agents, and a gate that fails the output that does not match.",
   "license": "MIT",
   "type": "commonjs",
-  "private": true,
   "repository": { "type": "git", "url": "git+https://github.com/TbusOS/proofmark.git" },
-  "scripts": {
-    "postinstall": "playwright install chromium",
-    "gate": "bin/design-review",
-    "facts": "node skills/design-review/scripts/facts.mjs"
+  "homepage": "https://doc.tbusos.com/proofmark/",
+  "bin": {
+    "proofmark": "cli/proofmark.mjs",
+    "proofmark-design": "cli/proofmark.mjs"
   },
-  "dependencies": {
+  "files": [
+    "cli/", "skills/", "hooks/", "bin/", "corpus/", ".claude/",
+    "README.md", "README_zh.md", "LICENSE"
+  ],
+  "keywords": [
+    "claude-code", "agent-skills", "design-system", "accessibility",
+    "axe-core", "visual-regression", "design-review", "ai-agents"
+  ],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "gate": "bin/design-review",
+    "facts": "node skills/design-review/scripts/facts.mjs",
+    "setup-gate": "npm install && npx playwright install chromium"
+  },
+  "devDependencies": {
     "axe-core": "^4.13.0",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.59.1",
