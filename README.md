@@ -76,6 +76,46 @@ Twenty-six pages built with these skills and shipped through the gate, under `de
 
 Taste is judged separately. `design-critic` reviews a page as one reviewer; four specialists (composition, copy, illustration, brand) can review in parallel, weighted 25/25/20/30.
 
+## Telling it what this project decided
+
+The nine languages are general. A project using them is not: it writes in one of
+them, it has looked at some findings and decided to live with them, and it is
+trying to get a particular reader to understand a particular thing. None of that
+is guessable, so without it every run re-argues the same warnings and the taste
+critics judge the page against a demo for a fictional notebook app.
+
+`DESIGN.md`, next to the page or anywhere above it:
+
+```markdown
+---
+skill: anthropic
+waivers:
+  - check: interaction:broken-anchor
+    reason: these are reference specimens; they link to sections a real product site would have
+    until: 2026-12-31
+---
+
+# Design decisions for <project>
+
+Prose. The critics read it; no parser does.
+```
+
+A waiver **downgrades an error to a warning. It never hides one** — the finding
+is still printed, with the reason underneath. Three rules have checks behind
+them: the reason is required and has to be a sentence; the `check` id must be
+one that exists, read out of the checker's own source so an upstream rename
+fails here rather than silently doing nothing; and an expired `until` fails
+validation so the decision gets made again. A waiver for a check that did not
+fire is reported too, because that line is now telling the next reader something
+untrue.
+
+A malformed `DESIGN.md` stops the run before the first gate. It decides what the
+checks do, and half-reading it is worse than refusing it.
+
+```bash
+node skills/design-review/scripts/design-md.mjs --check DESIGN.md
+```
+
 ## Running it without remembering to
 
 The full chain costs 17-25 seconds a page, because three of its five checks

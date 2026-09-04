@@ -60,13 +60,11 @@ SYNCED=(
 # re-listed after --pull so the edit is re-applied rather than silently lost.
 declare -a DIVERGED_PATH=(
   "skills/design-review/scripts/facts.mjs"
-  "skills/design-review/scripts/multi-critic.mjs"
   ".claude/agents/design-copy-critic.md"
 )
 declare -a DIVERGED_WHY=(
   "ROSTER and CORE_SURFACES describe this repo's 12 skills and 3 pages, not upstream's 22 and 13"
   "the prose-style file is read from \$DESIGN_LANGUAGE_RULES or \$HOME, not one author's absolute path"
-  "same: the absolute path in the 'files to read' list is replaced by an env var and a fallback"
 )
 
 # Files that must NOT exist here, though they exist upstream. rsync --delete
