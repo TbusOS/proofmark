@@ -44,6 +44,7 @@ SYNCED=(
   skills/lectern-design skills/primer-design skills/sage-design
   skills/design-review skills/design-planner skills/design-evolve
   corpus
+  hooks/design-gate
   bin/design-review
   .claude/agents/design-critic.md
   .claude/agents/design-brand-critic.md

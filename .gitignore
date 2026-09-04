@@ -11,3 +11,4 @@ shots/
 /.scratch/
 __pycache__/
 *.pyc
+.design-gate/

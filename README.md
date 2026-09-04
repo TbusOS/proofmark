@@ -76,6 +76,29 @@ Twenty-six pages built with these skills and shipped through the gate, under `de
 
 Taste is judged separately. `design-critic` reviews a page as one reviewer; four specialists (composition, copy, illustration, brand) can review in parallel, weighted 25/25/20/30.
 
+## Running it without remembering to
+
+The full chain costs 17-25 seconds a page, because three of its five checks
+drive a browser. Nobody pays that on every edit, so in practice it gets run just
+before publishing, which is the worst moment to find a structural problem.
+
+`verify.py` needs no browser and takes 0.05 seconds, so `hooks/design-gate/`
+runs it on every HTML write and sends the findings straight back. It also
+records the file's content hash; `bin/design-review` records the same hash when
+all five checks pass, and at the end of a turn the hook names the files whose
+current hash has no passing run. Editing a file changes its hash, so a receipt
+expires on its own.
+
+```bash
+hooks/design-gate/install.sh --dry-run   # see what it would change
+hooks/design-gate/install.sh             # write it into ~/.claude/settings.json
+hooks/design-gate/selftest.sh            # 15 assertions
+```
+
+It blocks once and then clears. A hook that keeps refusing until a condition is
+met refuses forever when that condition is unreachable, and the transcript
+becomes the hook and the model repeating themselves.
+
 ## What it refuses to judge
 
 The gate answers one question: does this page obey the design language it claims to be written in. It says nothing about whether the page is any good, whether the content is correct, or whether a reader will follow the argument. Clearing every check is compatible with the page being worth throwing away.
