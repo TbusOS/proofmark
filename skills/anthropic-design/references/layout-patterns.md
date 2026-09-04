@@ -1,0 +1,615 @@
+# Anthropic Layout Patterns
+
+六种可直接复用的版式骨架。所有示例假定已引入 `assets/anthropic.css` 与 `assets/fonts.css`。
+
+## 1. Editorial card grid（博客 / News listing）
+
+3 列卡片网格，编辑式风格 —— 每卡内：分类 badge → 标题 (h3 Poppins) → 摘要 (Lora) → 元信息（日期 + 作者）。中等屏幕降为 2 列，移动端单列。
+
+```html
+<section class="anth-section">
+  <div class="anth-container--wide">
+    <h2>Latest from Anthropic</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-6); margin-top:var(--space-7);">
+      <article class="anth-card">
+        <span class="anth-badge">Research</span>
+        <h3 style="margin-top:var(--space-3);">Constitutional AI</h3>
+        <p>A method for training a helpful, harmless, and honest assistant using AI feedback.</p>
+        <p class="anth-caption">April 14, 2026 · Research Team</p>
+      </article>
+      <article class="anth-card">
+        <span class="anth-badge">Engineering</span>
+        <h3 style="margin-top:var(--space-3);">Building Claude on TPUs</h3>
+        <p>How we scaled training across heterogeneous accelerators.</p>
+        <p class="anth-caption">April 09, 2026 · Infrastructure</p>
+      </article>
+      <article class="anth-card">
+        <span class="anth-badge">Policy</span>
+        <h3 style="margin-top:var(--space-3);">Responsible scaling</h3>
+        <p>How we evaluate and deploy increasingly capable models safely.</p>
+        <p class="anth-caption">April 02, 2026 · Policy Team</p>
+      </article>
+    </div>
+  </div>
+</section>
+```
+
+## 2. Long-form article（720px 单栏 Lora）
+
+研究博客 / 长文。整篇用 `.anth-container--narrow` 锁住 720px，Lora 衬线呈现编辑感；标题分级用 Poppins。
+
+```html
+<article>
+  <header class="anth-section">
+    <div class="anth-container--narrow">
+      <span class="anth-badge">Research</span>
+      <h1 style="margin-top:var(--space-4);">Scaling Monosemanticity</h1>
+      <p class="anth-caption">By the Interpretability Team · April 14, 2026 · 18 min read</p>
+    </div>
+  </header>
+  <div class="anth-container--narrow">
+    <p>Sparse autoencoders extract interpretable features from production-scale models...</p>
+    <h2>Method</h2>
+    <p>We trained sparse autoencoders on the residual stream activations...</p>
+    <blockquote class="anth-quote">
+      Monosemanticity gives us a microscope into what the model represents.
+    </blockquote>
+    <h2>Results</h2>
+    <p>The features we extract correspond to recognizable concepts...</p>
+  </div>
+</article>
+```
+
+## 3. Research paper（hero + SVG 插画 + 多 heading 分节 + 内联图表）
+
+包含：抽象 SVG hero illustration、多级标题分节、内联数据图。
+
+```html
+<section class="anth-hero">
+  <div class="anth-container--narrow">
+    <span class="anth-badge">Paper</span>
+    <h1 style="margin-top:var(--space-4);">Discovering Language Model Behaviors with Model-Written Evaluations</h1>
+    <p class="anth-caption">December 2025 · 47 pages</p>
+    <p style="margin-top:var(--space-5);">
+      <a class="anth-button">Read PDF</a>
+      <a class="anth-link" style="margin-left:var(--space-4);">View on arXiv</a>
+    </p>
+  </div>
+</section>
+
+<figure>
+  <svg viewBox="0 0 1200 1200" width="100%" role="img" aria-label="Abstract illustration">
+    <circle cx="600" cy="600" r="320" fill="#d97757" opacity="0.85"/>
+    <circle cx="820" cy="500" r="180" fill="#6a9bcc" opacity="0.85"/>
+    <rect x="380" y="700" width="260" height="260" rx="40" fill="#788c5d" opacity="0.85"/>
+  </svg>
+  <figcaption class="anth-caption" style="text-align:center;">Figure 1. Distribution of evaluated behaviors.</figcaption>
+</figure>
+
+<div class="anth-container--narrow">
+  <h2>1. Introduction</h2>
+  <p>Large language models exhibit a wide range of behaviors...</p>
+  <h2>2. Method</h2>
+  <p>We generate evaluations by prompting a strong language model...</p>
+  <figure>
+    <svg viewBox="0 0 600 360" role="img" aria-label="Bar chart of evaluation results">
+      <rect x="40" y="120" width="60" height="200" rx="4" fill="#6a9bcc"/>
+      <rect x="160" y="60" width="60" height="260" rx="4" fill="#6a9bcc"/>
+      <rect x="280" y="160" width="60" height="160" rx="4" fill="#6a9bcc"/>
+      <rect x="400" y="100" width="60" height="220" rx="4" fill="#d97757"/>
+    </svg>
+    <figcaption class="anth-caption" style="text-align:center;">Figure 2. Sycophancy across model sizes.</figcaption>
+  </figure>
+  <h2>3. Results</h2>
+  <p>...</p>
+</div>
+```
+
+## 4. Product overview（claude.com 风）
+
+Hero（标题 + 副标 + 橙色 CTA）→ 3 张能力卡 → 客户引用轮播。
+
+```html
+<section class="anth-hero">
+  <div class="anth-container">
+    <h1>Claude. AI for everyone.</h1>
+    <p style="font-size:21px; max-width:640px; margin:var(--space-5) auto;">
+      A trustworthy AI assistant that's helpful, harmless, and honest.
+    </p>
+    <p>
+      <a class="anth-button">Try Claude</a>
+      <a class="anth-link" style="margin-left:var(--space-4);">Talk to sales</a>
+    </p>
+  </div>
+</section>
+
+<section class="anth-section anth-section--subtle">
+  <div class="anth-container--wide">
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-6);">
+      <div class="anth-card">
+        <h3>Reasoning</h3>
+        <p>Multi-step problem solving across domains.</p>
+        <a class="anth-link">Learn more</a>
+      </div>
+      <div class="anth-card">
+        <h3>Coding</h3>
+        <p>Production-grade software engineering.</p>
+        <a class="anth-link">Learn more</a>
+      </div>
+      <div class="anth-card">
+        <h3>Writing</h3>
+        <p>Long-context drafting and editing.</p>
+        <a class="anth-link">Learn more</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="anth-section">
+  <div class="anth-container">
+    <div class="anth-carousel">
+      <div class="anth-carousel-viewport">
+        <blockquote class="anth-quote">
+          Claude consistently produces the best responses in our internal evaluations.
+          <cite class="anth-quote-cite">
+            <img src="logos/notion.svg" alt="Notion" />
+            <span>Simon Last · Co-founder, Notion</span>
+          </cite>
+        </blockquote>
+      </div>
+      <p class="anth-carousel-counter" style="text-align:right;">01 / 21</p>
+    </div>
+  </div>
+</section>
+```
+
+## 5. Pricing cards（三列 plan 卡，推荐款橙细边高亮）
+
+```html
+<section class="anth-section">
+  <div class="anth-container--wide">
+    <h2 style="text-align:center;">Choose a plan</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-6); margin-top:var(--space-7);">
+
+      <div class="anth-card">
+        <h3>Free</h3>
+        <p class="anth-caption">For individuals exploring Claude.</p>
+        <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$0</p>
+        <a class="anth-button anth-button--ghost">Try Claude</a>
+      </div>
+
+      <div class="anth-card" style="border:2px solid var(--anth-orange);">
+        <span class="anth-badge">Most popular</span>
+        <h3 style="margin-top:var(--space-3);">Pro</h3>
+        <p class="anth-caption">For everyday productivity.</p>
+        <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$20<span style="font-size:14px;">/mo</span></p>
+        <a class="anth-button">Get Pro</a>
+      </div>
+
+      <div class="anth-card">
+        <h3>Team</h3>
+        <p class="anth-caption">For teams that build with Claude.</p>
+        <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$30<span style="font-size:14px;">/mo</span></p>
+        <a class="anth-button anth-button--ghost">Get Team</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+```
+
+## 6. Enterprise（logo 墙 + 价值 props + 联系表单）
+
+```html
+<section class="anth-hero">
+  <div class="anth-container">
+    <h1>Claude for Enterprise</h1>
+    <p style="font-size:21px; max-width:640px; margin:var(--space-5) auto;">
+      Deploy frontier AI with the security, governance, and support your organization needs.
+    </p>
+    <p><a class="anth-button">Talk to sales</a></p>
+  </div>
+</section>
+
+<section class="anth-section anth-section--subtle">
+  <div class="anth-container--wide">
+    <p class="anth-caption" style="text-align:center;">Trusted by leading organizations</p>
+    <div class="anth-logo-wall" style="margin-top:var(--space-5);">
+      <img src="logos/lyft.svg" alt="Lyft" />
+      <img src="logos/notion.svg" alt="Notion" />
+      <img src="logos/zoom.svg" alt="Zoom" />
+      <img src="logos/asana.svg" alt="Asana" />
+      <img src="logos/quora.svg" alt="Quora" />
+      <img src="logos/dna.svg" alt="DNA" />
+    </div>
+  </div>
+</section>
+
+<section class="anth-section">
+  <div class="anth-container--wide">
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-6);">
+      <div>
+        <h3>Enterprise security</h3>
+        <p>SSO, SCIM, audit logs, and SOC 2 Type II compliance.</p>
+      </div>
+      <div>
+        <h3>Expanded context</h3>
+        <p>500K-token context window for entire codebases or document libraries.</p>
+      </div>
+      <div>
+        <h3>Dedicated support</h3>
+        <p>White-glove onboarding and a named success engineer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="anth-section anth-section--subtle">
+  <div class="anth-container--narrow">
+    <h2>Contact our sales team</h2>
+    <form style="display:grid; gap:var(--space-4); margin-top:var(--space-5);">
+      <label>
+        <span class="anth-label">Work email</span>
+        <input class="anth-input" type="email" placeholder="you@company.com" />
+      </label>
+      <label>
+        <span class="anth-label">Company</span>
+        <input class="anth-input" type="text" />
+      </label>
+      <label>
+        <span class="anth-label">Company size</span>
+        <select class="anth-select">
+          <option>1–50</option>
+          <option>51–500</option>
+          <option>501–5,000</option>
+          <option>5,000+</option>
+        </select>
+      </label>
+      <label>
+        <span class="anth-label">How can we help?</span>
+        <textarea class="anth-textarea" rows="4"></textarea>
+      </label>
+      <p><button class="anth-button" type="submit">Submit</button></p>
+    </form>
+  </div>
+</section>
+```
+
+---
+
+## 容器选择表（**按版式选正确容器**）
+
+| 版式 | 推荐容器 | max-width | 为什么 |
+|---|---|---|---|
+| Hero 主视觉 | `.anth-container` 或 `.anth-container--wide` + 内层 `max-width:820` 约束 h1+lead | 960 / 1200 | hero 需要宽度承载视觉；窄容器会让 hero 内容在大屏幕靠左 |
+| 产品总览 / 能力卡 3 列 | `.anth-container` | 960 | 卡片默认三列舒适宽度 |
+| **长文正文（Lora）** | `.anth-container--narrow` | 720 | Lora serif 阅读最佳宽度 |
+| Research 论文 | `.anth-container--narrow` | 720 | 同上 |
+| 数据报告 / pricing 表 | `.anth-container--wide` | 1200 | 多列图表 / 比较表 |
+| Enterprise / logo 墙 | `.anth-container--wide` | 1200 | 6 列 logo + 价值 props |
+| Install / 短聚焦段 | `.anth-container--narrow` | 720 | 聚焦单栏内容 |
+| **工程密图 / 宽表**（位域、地址空间、时序波形） | figure 自身突破版心 | **≤ 1680,且左右各留 ≥16px** | 1200 挡不住的图型：拆开就丢掉信息（地址布局拆了没有线性关系、位域拆了看不出位宽比例）。缩到版心只会把标签压到读不动，而 diagram-craft 的判据是"看不清 = 没画" |
+
+### 突破版心（full-bleed）怎么写才合法
+
+`visual-audit` 会豁免**有意的、居中的、受控的**突破，四条同时满足才放行：
+
+1. 元素是 `<figure>` / `<table>` / `<pre>`，不是正文块
+2. **在视口里居中**（判的是几何结果，不挑 CSS 写法）
+3. 不越出视口，且文档不横向滚动 —— 真正的 bug 是 `<body>` 上出现横向滚动条
+4. 宽度 ≤ 1680 且左右各留 ≥16px
+
+```css
+.figwide{
+  width: min(1680px, calc(100vw - 56px));
+  margin-left: calc(50% - min(1680px, 100vw - 56px) / 2);
+  max-width: none;
+}
+.figwide svg{ width:100%; height:auto; display:block }
+@media (max-width:1200px){ .figwide{ margin-inline:0; overflow-x:auto } }   /* 窄屏退化,必写 */
+```
+
+**两个反面**：
+
+- `width:100vw` 不封顶 —— 在 1440 上看着对，落到 2560 显示器就是一条横幅，眼睛得横着走。
+  闸报 `figure-fullbleed-uncapped`（判据是"图宽 = 视口宽"，在任何视口都测得出来）。
+- `position:relative; left:50%; transform:translateX(-50%)` —— **`left` 对 relative 元素是相对自身静态位置偏移，不是相对父容器左边缘**。
+  父容器有内边距时算出来是偏心的（实测偏 40px、右侧越出视口 12px、页面真的在横滚），闸会照常报 `layout-overflow`。
+
+⚠️ **最常见错误**：把 hero 包在 `.anth-container--narrow` —— 720 是长文阅读宽度，不是 hero 宽度。hero 至少用 960。
+
+---
+
+## 版心与阅读纪律（2026-07-06 用户反馈四坑 · 写任何页面前过一遍）
+
+用户对存量产物反复反馈的 4 类问题，每条都有机器闸兜底——generator 侧先按规则写对，别等闸抓：
+
+### A · 版心不许全页窄列（对应 known-bugs §1.44 `narrow-content-column`）
+
+- 720 窄列**只给纯 prose**（长文正文 / verdict 段）。表格、figure、多列 grid、代码块一律 960（`anth-container`）或 1200（`anth-container anth-container--wide`）。
+- 同一页混用容器档位是**正常的**：窄列 prose → wide figure → 回窄列。整页只套一个窄容器 = 1440 屏上左右各 400px 死空白、内容挤成一条 —— 这就是被反馈的样子。
+- 机器闸：整页最宽内容块 < 640px（viewport ≥ 1280）→ warn。
+
+### B · 对齐让位于可读性 — 密图单独放大（对应 §1.29 / §1.44）
+
+- 图的宽度由**图的内容密度**定档（diagram-craft §8.1 选档表），**不由上文列宽定**。"为了和上面文字对齐把密图压进窄列" 是被点名的反馈原话——图看不清等于没画。
+- breakout 是默认动作，不需要犹豫：
+
+  ```html
+  </div>  <!-- 结束当前窄容器 -->
+  <div class="anth-container anth-container--wide">
+    <figure>…密图…<figcaption>…</figcaption></figure>
+  </div>
+  <div class="anth-container anth-container--narrow">  <!-- 回窄列继续 prose -->
+  ```
+
+- **grid 单元格里禁放 ≥20 label 的密图**——单元格宽度天然不够，要么图独占全行（`grid-column: 1 / -1`），要么拆图。
+- 机器闸：`dense-diagram-cramped`（≥20 label < 760px）+ `diagram-tiny-text`（渲染 < 9px）。
+
+### C · prose 分段纪律（对应 §1.45 `prose-wall`）
+
+- 单段 ≤ 5 行（渲染 ≈ ≤ 150px）；一段讲一件事。
+- ≥3 个并列要点 → `<ul>` / `<ol>`，不写成顿号长句。
+- 成组论述（背景 / 结论 / 注意事项）→ 装进 `.anth-admonition`（success / warning / danger）或白卡色框，用颜色和边框把段落**分组**，读者扫一眼知道哪块是哪类。
+- 概念关系（流程 / 结构 / 对比）→ 直接上图，图密度合约本来就要求（SKILL.md / diagram-craft §12）。
+- 机器闸：单 `<p>` > 420px 或 ≥4 连续 `<p>` 累计 > 900px 无结构分隔 → warn。
+
+### D · 重叠三大来源（对应 §1.25 两档升级）
+
+HTML 侧文字重叠 90% 来自这三个写法，直接别用：
+
+| 别写 | 换成 |
+|---|---|
+| 文本容器 `height: 40px` 固定高 | `min-height`——内容长了自动撑开，不会压到下一行 |
+| `position: absolute` 摆文字不留 bbox | 正常流 + margin；确需绝对定位（角标 / 徽章）给足 inset 并测过双语两种长度 |
+| 负 margin 把文字往上拉 | 调父容器 gap / padding |
+
+- SVG 侧规则在 diagram-craft §8.2（文字 bbox 互不相交 ≥ 4px、y 间距 ≥ font-size × 1.4）。
+- 机器闸升级：重叠 ≥ 40% 且 ≥ 80px² 现在是 **error**（直接 block），不再是可忽略的 warn。
+- 双语页面注意：EN 和 zh 文案长度差很大，布局要按**较长的那种语言**留空间，交付前两种语言各截一次图。
+
+---
+
+## Scenario recipes
+
+canonical 没覆盖的版式。遇到时按对应 recipe 写，不要把 §1-§6 的卡片 / 编辑式样硬套上去。
+
+### L1 · 数据密集 dashboard（一屏 ≥ 4 个数据块）
+
+```
+容器:        .anth-container .anth-container--wide        （1200px）
+grid 列数:    4 列（≤1024 降 2 列）
+grid gap:    var(--space-4)                              16px（不是 32px）
+card padding: var(--space-4)                              16px（不是 32px）
+card border:  1px solid var(--anth-light-gray)           （替代默认 box-shadow）
+card 圆角:    var(--radius-md)                            16px
+```
+- 不要 abstract SVG illustration；dashboard 只配 data viz
+- 标签 / eyebrow：Poppins 0.8125rem (13px) / weight 500 / `text-transform: uppercase` / `letter-spacing: 0.05em` / `color: var(--anth-text-secondary)`
+- 数据值：**Poppins 不是 Lora** / 2rem (32px) / weight 700 / `color: var(--anth-text)`
+- 趋势 delta：13px / weight 600 / 上行 `var(--anth-green)` / 下行 `var(--anth-danger)` / 数字带 `↑` `↓` 不用色块
+- 标题段（"Overview" 之类）：h2 仍 Poppins 40px，但 `margin-bottom: var(--space-5)` 不是 `--space-7`（dashboard 段间距比 landing 紧）
+
+```html
+<section class="anth-section">
+  <div class="anth-container anth-container--wide">
+    <h2>Usage overview</h2>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:var(--space-4); margin-top:var(--space-5);">
+      <div class="anth-card anth-card--data" style="padding:var(--space-4); border:1px solid var(--anth-light-gray); box-shadow:none;">
+        <p class="anth-eyebrow" style="font-family:var(--font-heading); font-size:13px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; color:var(--anth-text-secondary); margin:0;">Active users</p>
+        <p style="font-family:var(--font-heading); font-size:32px; font-weight:700; line-height:1; margin:var(--space-2) 0 0;">12,847</p>
+        <p style="font-size:13px; font-weight:600; color:var(--anth-green); margin:var(--space-2) 0 0;">↑ 4.2% vs last week</p>
+      </div>
+      <!-- ×3 more -->
+    </div>
+  </div>
+</section>
+```
+
+### L2 · Form / 表单
+
+```
+容器:       .anth-container .anth-container--narrow      （720px，不是 wide）
+grid:       display:grid; gap:var(--space-4)              （不是 flex column）
+section 间距: 大块表单段落用 <fieldset>，gap:var(--space-6)
+```
+- 见 §6 enterprise 范例与 components.md scenario recipes（input/textarea/select/radio/checkbox）
+- 多列字段（"First name" + "Last name"）用 `grid-template-columns: 1fr 1fr; gap: var(--space-4)`
+- Submit 按钮单独一行，`.anth-button` + `margin-top: var(--space-6)`
+- 错误提示行 `.anth-form-error`：13px / `var(--anth-danger)` / `margin-top: var(--space-1)`，**不要**用红框替代文字
+- 不要 floating label（anthropic 用 above-input label）
+
+### L3 · 数据 / 比较表（HTML `<table>`）
+
+```
+容器:       .anth-container .anth-container--wide
+表头 th:    Poppins / 13px / weight 600 / uppercase / letter-spacing 0.05em
+            color: var(--anth-text-secondary)
+            border-bottom: 1px solid var(--anth-light-gray)
+            padding: var(--space-3) var(--space-4)
+            text-align: left（数值列右对齐）
+表体 td:    Lora / 16px / weight 400
+            border-bottom: 1px solid var(--anth-light-gray)
+            padding: var(--space-3) var(--space-4)
+zebra:      偶数行 background: var(--anth-bg-subtle)        （可选；行数 ≤ 6 不要 zebra）
+hover 行:   不要 hover 高亮（anthropic 表是阅读态，不是交互态）
+```
+- 不要圆角整表（`<table>` 直边，避免边框断裂）
+- 长字段超出 → `text-overflow: ellipsis` + `title=""`，不要换行撑高
+- 数值列右对齐：`<td style="text-align:right; font-variant-numeric: tabular-nums;">`
+
+### L4 · Tabs（顶部分类切换）
+
+```
+容器:       .anth-container（与下方内容容器一致）
+tab list:   role="tablist"; display:flex; gap:var(--space-2)
+            border-bottom: 1px solid var(--anth-light-gray)
+单 tab:     padding: var(--space-3) var(--space-4)
+            font-family: var(--font-heading); font-size:15px; font-weight:500
+            color: var(--anth-text-secondary)
+            border-bottom: 2px solid transparent; margin-bottom:-1px
+            transition: color var(--duration-sm) var(--ease-anth),
+                        border-color var(--duration-sm) var(--ease-anth)
+[aria-selected=true]:
+            color: var(--anth-text)
+            border-bottom-color: var(--anth-orange)
+```
+- 不要 pill / capsule tab（那是 ember 风格）；anthropic 是 underline tab
+- 不要 4 个以上 tab（改 dropdown 或左侧 nav）
+- tab 切换内容用 `var(--duration-sm)` opacity 淡入（见 motion §M3）
+
+### L5 · Accordion / FAQ
+
+```
+容器:       .anth-container .anth-container--narrow（720px 阅读宽度）
+单条:       <details> + <summary>（无 JS 即可）
+            border-bottom: 1px solid var(--anth-light-gray)
+            padding: var(--space-5) 0
+summary:    Poppins / 18px / weight 500 / cursor:pointer
+            list-style:none; （隐藏默认箭头）
+            ::after content: "+";  open 时 "−"
+            transition: color var(--duration-sm)
+open 内容:   Lora / 18px / 1.65 line-height / color: var(--anth-text-secondary)
+            margin-top: var(--space-3)
+```
+- 不要 chevron 图标，用 `+` / `−` 文字符号（与 anthropic 简洁感一致）
+- 不要 box 包裹整条（仅底边线分隔）
+
+### L6 · Modal / Dialog
+
+```
+overlay:    position:fixed; inset:0
+            background: rgba(20,20,19,0.45)        （半透明实色，不要 blur）
+            display:grid; place-items:center
+dialog:     background: var(--anth-bg)
+            border-radius: var(--radius-lg)         24px
+            box-shadow: var(--shadow-pop)
+            max-width: 560px
+            padding: var(--space-7)                 48px
+            内部用 .anth-container--narrow 内容布局
+title:      h2 Poppins 28px weight 600（不是 40px section h2）
+close 按钮: 右上角 24×24 图标按钮，aria-label="Close"
+```
+- modal 内不放复杂表单（> 5 字段就改成全页）
+- 进出动画见 motion §M6
+
+### L7 · Sidebar nav layout（docs / wiki）
+
+```
+全页:       display:grid; grid-template-columns:280px 1fr
+            （≤1024 折叠 sidebar 为 hamburger）
+sidebar:    background: var(--anth-bg-subtle)
+            border-right: 1px solid var(--anth-light-gray)
+            padding: var(--space-7) var(--space-5)
+            position: sticky; top: 0; height: 100vh; overflow-y: auto
+nav 组:     <h6> Poppins 12px uppercase letter-spacing 0.05em
+            color: var(--anth-text-secondary)
+            margin: var(--space-5) 0 var(--space-2)
+nav 链接:   Poppins 14px weight 400 / color: var(--anth-text-secondary)
+            active: color:var(--anth-orange); weight:500
+            hover: color:var(--anth-text)
+            padding: var(--space-2) 0
+正文:       .anth-container--narrow（在右侧 1fr 列内居中）
+```
+- sidebar 不放 illustration / icon；纯文本链
+- active link 用 orange 文字色，不用左侧 indicator bar（与 anthropic 极简一致）
+
+### L8 · Changelog / 时间线列表
+
+```
+容器:       .anth-container--narrow
+单条:       grid-template-columns: 88px 1fr; gap: var(--space-5)
+            border-top: 1px solid var(--anth-light-gray)
+            padding: var(--space-7) 0
+日期:       Poppins 14px weight 500 / color:var(--anth-text-secondary)
+内容标题:   Poppins 24px weight 600
+内容正文:   Lora 18px / 1.65
+版本 badge: .anth-badge（如 v1.4.0）
+```
+- 不要左侧时间线竖线 + 圆点（anthropic 用顶边线分隔，更克制）
+- 倒序：最新在最上
+
+### L9 · Video / Media embed
+
+```
+容器:       .anth-container（hero 用 --wide）
+wrapper:    aspect-ratio: 16/9; border-radius: var(--radius-lg); overflow:hidden
+            background: var(--anth-bg-subtle)
+            border: 1px solid var(--anth-light-gray)
+poster:     必须有，不要黑屏占位
+play btn:   居中 80×80 圆形 var(--anth-orange) 背 + 白色三角
+            box-shadow: var(--shadow-pop)
+caption:    .anth-caption 居中 / margin-top: var(--space-3)
+```
+- 不要 autoplay 带声音（已在 motion 禁止）
+- 加 `<track kind="captions">` 字幕，accessibility 不可省
+
+### L10 · Empty state
+
+```
+容器:       .anth-container--narrow
+布局:       text-align: center; padding: var(--space-10) 0
+illustration: 240×180 抽象 SVG（橙圆 + 蓝矩 + 绿圆角矩；见 imagery.md）
+            margin-bottom: var(--space-6)
+title:      h3 Poppins 24px weight 600
+hint:       Lora 18px / max-width:480px / margin:auto / color:var(--anth-text-secondary)
+CTA:        .anth-button primary
+```
+- 不要 emoji 表情（"🤔 Nothing here"）；anthropic 用抽象 SVG，不用 emoji
+- 文案见 ux-writing.md（"No conversations yet" 不写 "Oops! It looks like you haven't created..."）
+
+### L11 · Info-dense 工程规格页（register map / 位域布局 / 多维摘要）
+
+工程文档的数据密度和营销页是两种形状：读者在**解码**不在浏览，`file:line`
+引用和 code ref 高频出现。直接套 anth-card / report-table 会过载——单 SVG 塞
+10+ 行 11-13px `<text>` 是字墙，4 行表格每格 4-5 句 + 8 个 `<code>` 是词墙
+（真实 reviewer 反应："密密麻麻如何阅读？"）。两个替代配方：
+
+**A · 多维摘要 → 2×2 维度卡**（4-6 个维度，每维 1 个关键数 + 3-5 条子项）
+
+```
+容器:        .anth-container（960）
+grid:        2×2,gap var(--space-4)
+每卡:        左侧 4px 色条(per-dimension,低饱和数据色板;不是品牌橙满涂)
+             小 badge("维度 N" / 域名,eyebrow 样式 13px uppercase)
+             H3 = 关键数字(Poppins 28-32px weight 700)
+             inline mini-SVG 280×50(见 data-display.md "卡内 mini-SVG")
+             3-5 条 bullet(15px,每条 ≤1 行)
+             一行 citation footer(mono 12px,var(--anth-text-secondary),file:line)
+```
+
+**B · 寄存器 / 位域 / 内存布局 → HTML 卡片网格**（替代一张大 SVG）
+
+```
+区域:        每个 region 一个 panel(h3 标题 + 一句 caption)
+entry 卡:    offset(JetBrains Mono 18-22px weight 600,卡内最大字)
+             size(mono 12px,text-secondary)
+             name(Poppins 15px weight 600)
+             description(Lora 14px,≤2 行)
+grid:        repeat(auto-fill,minmax(200px,1fr)),gap var(--space-3)
+关键 entry:  深一档卡底(var(--anth-cream)) + offset 字号加大,不靠颜色喊
+零散/未知:   不进网格——收进 .anth-admonition 放网格之后
+```
+
+- 原则：**密度靠分层消化,不靠缩字号**。每个 entry 卡内部有自己的字号
+  阶梯(mono 大数 → 名称 → 描述),读者扫 offset 列即可定位,3 秒可扫
+- 一张图装不下 ≠ 缩小字号塞进去,= 换 HTML 网格(天然换行、可 hover、
+  可复制文本)
+- citation 永远 mono + text-secondary,不抢正文层级
+
+```
+要做哪类版式？
+├─ 长文 / 研究 paper          → §2-§3
+├─ 产品 / 营销主页             → §4 / §6
+├─ 编辑式 listing / 博客       → §1
+├─ pricing 三列                → §5
+├─ 数据展示                    → L1 dashboard / L3 表 / L9 video
+├─ 表单 / 客户输入              → L2
+├─ 文档 / wiki                 → L7 sidebar layout
+├─ 内容切换控件                 → L4 tabs / L5 accordion
+├─ 状态浮层                    → L6 modal
+├─ 时间线                       → L8 changelog
+├─ 空数据                       → L10 empty state
+├─ 工程规格(register/位域/多维) → L11 info-dense
+└─ 都不是 → 回 §1-§6 找最近的版式 + dos-and-donts.md 对照检查
+```

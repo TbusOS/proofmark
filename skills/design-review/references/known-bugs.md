@@ -1,0 +1,1205 @@
+# Known-Bug Catalogue
+
+> 这是 design-review skill 的**事实清单** —— 每一行都是过去真实踩过的坑，
+> 说清楚 **Reader sees → Why → Defense** 三件事。任何一个 bug 被重犯，
+> 就是防御不够,要同时修脚本 + 修对应 skill 的 `dos-and-donts.md`。
+
+使用方式：`design-review` 的 evaluator（脚本 + 将来的 critic subagent）
+按这张表核对。读者发现一个本表之外的新问题 → 追加一行 +
+回补到 visual-audit.mjs 或 verify.py。
+
+---
+
+## 1. 跨 skill 通用
+
+### 1.1 `[hero]` / `[SVG]` / `[icon]` 占位符留在 HTML 里
+- **Reader sees**：页面渲染出 `[placeholder]` 字样，上线即暴露。
+- **Why**：LLM 草稿阶段用 `[...]` 占位，写完忘了替换为真 SVG。
+- **Defense**：`verify.py` 的 `PLACEHOLDER_PATTERN` 扫所有 `[hero.*|svg|img|photo|abstract.*|workspace.*|*.icon|placeholder|todo|tbd|fixme]`。
+- **Rule in skill**：每个 skill 的 `dos-and-donts.md` 都有 "把 `[hero]` 留在产物里 → 上线即暴露"。
+
+### 1.2 BEM modifier-only（容器不居中）
+- **Reader sees**：整个容器贴左，页面版心崩了。
+- **Why**：CSS 里 `.ember-container { margin: 0 auto }` 是 base class 的规则，modifier `.ember-container--narrow` 只覆盖 max-width。作者只写了 `class="ember-container--narrow"`，base 的 `margin:0 auto` 不生效。
+- **Defense**：`verify.py` 的规则 6 正则扫 `{prefix}-container--(narrow|wide|hero)` 必须与 `{prefix}-container` 同时出现。
+- **Rule in skill**：所有 4 个 skill 的 `dos-and-donts.md`。
+- **Applies to**：anthropic / apple / ember / sage（apple 的 base class 是"窄"的那一个，narrow 规则反过来）。
+
+### 1.3 Hero 框图渲染宽度 < 900px → 字挤到不可读
+- **Reader sees**：hero 里那张大 SVG 框图缩得很小，labels 在实际像素下 < 9px，完全认不出。
+- **Why**：
+  - figure 被关在默认 container（`apple-container` 980px / `anth-container` 960px）里；
+  - figure padding 太大（`var(--space-7)`）吞掉 SVG 宽度；
+  - figure 处在多列 grid 里未跨列，只占单列宽度。
+- **Defense**：`visual-audit.mjs` 的 "hero diagram sizing audit"：`figure[grid-column: 1 / -1] > svg` 实测 rect.width < 900px 就 warn。
+- **Fix playbook**：
+  - 换用 `--hero` / `--wide` 版 container；
+  - figure padding 改 `var(--space-5) var(--space-6)`；
+  - figure `grid-column: 1 / -1`。
+
+### 1.4 SVG `<text font-size="8">` 在 1440 视口实际 < 9px
+- **Reader sees**：框图里的标签糊成一片。
+- **Why**：作者在 viewBox 里写 `font-size="8"`，但 viewBox → 渲染宽度的 scale 通常 < 1.2，8 × 1.0 就 < 9px 了。
+- **Defense**：`visual-audit.mjs` 的 "diagram-tiny-text" 检查：`effective_px = font_size * (rect.width / viewBox.width)`，< 9 就 warn。
+- **Rule**：SVG 所有 `<text>` 源码 `font-size ≥ 9.5`（历史上被改过 8 → 9.5 的位置：Apple/Anthropic SoC + multi-repo diagram）。
+
+### 1.5 多列网格里一张卡孤儿在 hero 卡旁边
+- **Reader sees**：右半行大 hero 框图，左半行一张小卡片，中间撕裂感。
+- **Why**：作者把一张普通 feature card 放进了一个"全行 hero figure"的 grid 里，没跨列也没配对。
+- **Defense**：`visual-audit.mjs` 的 "orphan-figure" 检查：grid 里 N-1 张是 full-row hero，剩 1 张不是且宽度 < 70% 父容器 → warn。
+- **Fix**：要么给孤儿 `grid-column: 1 / -1` + 给 SVG `max-width:640px; margin:0 auto` 居中，要么补一张配对卡。
+
+### 1.6 Lineup 卡 = 小线条图标居中（看起来像 wireframe）
+- **Reader sees**：skill grid 里每张卡都是 72×72 的细线图标在一个浅灰方块中心 —— 像占位符，不像成品。
+- **Why**：偷懒用 Feather/Heroicons 图标当插画，aspect-ratio:1 的卡片大部分是空白。
+- **Defense**：目前是文档级规则（未落到脚本，因为"是否像 wireframe"缺少客观判据 —— 这正是将来 design-critic subagent 的用武之地）。
+- **Rule**：每个 skill 的 `dos-and-donts.md` 都有 "Lineup 卡片只放一个 72×72 细线图标居中 → 像 wireframe"。
+- **正面教材**：每张都是满版 illustration，各有独特视觉语言（芯片 tile / 录制界面 / PDF→MD / palette 预览 …）。
+
+### 1.7 CTA/按钮 contrast < 4.5（WCAG AA fail）
+- **Reader sees**：按钮上的文字在品牌色底上发虚，失读障碍/夜间阅读看不清。
+- **Why**：品牌色往往是中饱和中明度，配中性色文字差 0.5–1.0 就过不了 AA。
+- **Defense**：`visual-audit.mjs` 的 "contrast audit"：扫所有按钮/徽章选择器，ratio < 3 报 error，3–4.5 报 warn。
+
+### 1.8 SVG 里的 rotated / transformed 装饰文字穿过其他 label
+- **Reader sees**:SVG 框图右侧有一条旋转 90° 的 "REQUEST · FLOWS · DOWN" 装饰文字,和其他静态标签重叠成乱码。用户主动报告此 bug (2026-04-20)。
+- **Why**:generator 写 SVG 时用源码坐标思维;加上 `transform="translate(...) rotate(90)"` 之后,源码里看似安全的 x/y 坐标在渲染后变成另一方向的射线,穿过附近不该穿过的元素。**纯静态源扫描永远抓不到** —— 必须渲染后看 bounding box。
+- **Defense**:`visual-audit.mjs` 的 **svg-text-overlap** check —— 同 SVG 内任意两个 `<text>` 的 `getBoundingClientRect()` 相交 ≥ 4px × 4px 就报 error。阈值 4px 跳过 title/subtitle 正常 font-metric 紧贴。
+- **Rule**:`cross-skill-rules.md` §E 规定了修法优先级 —— **先问有没有设计意图,再挪位置 / 换布局,最后才考虑删**。
+- **正确修法示例**:demos/{anthropic,apple,sage}-design/index.html 三处装饰文字 —— **第一次**我直接删了 (错误示范);**用户 push back 指正**后改为"横着放在 stage labels 那一行,顶部中线,箭头 ↓ REQUEST · FLOWS · DOWN ↓",保留设计意图(声明信息流方向)的同时消除 overlap。index.html 预览卡里两行大 h1 源码 y 偏移不够,调整 y 坐标(不是删 h1)。
+- **教训**:2026-04-20 —— "overlap 出现时,删是最后一招,不是第一招"。这条教训已写进 cross-skill-rules §E.2 优先级规则。
+
+### 1.9 SVG 里文字颜色和它所在的 shape 填充色太近
+- **Reader sees**:某 rect 里的文字和 rect 的填充色看起来几乎一样,文字变不可见。
+- **Why**:作者在源码里用 `fill="#fff"` 给文字,不小心 rect 也是 `fill="#fff"`,或两者色相差几个 RGB。
+- **Defense**:`visual-audit.mjs` 的 **svg-text-on-same-colour** check —— 对每个 `<text>`,找到包含它中心点的**最小不透明** shape(忽略 fill-opacity < 0.5 的叠加层),计算 RGB 欧氏距离;< 40 就 warn。
+- **注意**:该 check 的 heuristic 近似度不高,只用作提示。真色彩对比度要 WCAG 算法(带 gamma 曲线),不是简单 RGB 距离。
+
+### 1.10 heading 层级跳级 h1 → h3(跳过 h2)
+- **Reader sees**:视觉上没问题,屏幕阅读器用户会感觉章节结构残缺。
+- **Why**:作者用 h1 标全页标题,直接用 h3 做子标题(因为 h2 太大了),h2 缺失。
+- **Defense**:`visual-audit.mjs` 的 **heading-skip** check —— 扫所有可见 heading(跳过 footer / aside / nav,这些 landmark 里 h5 列标题是行业惯例),发现 jump > 1 级就 warn。
+- **修法**:要么补一个 h2 层级,要么把 h3 改成 h2 + CSS 缩小字号(语义层级归语义,视觉层级归 CSS)。
+
+### 1.11 多 `<h1>` 同页 / 无 `<h1>`
+- **Reader sees**:没视觉异常;SEO 和 a11y 出问题。
+- **Defense**:`visual-audit.mjs` 的 **multiple-h1** check —— 可见 h1 > 1 报 error;== 0 报 warn。
+
+### 1.12 `<img>` 无 alt / `<a>` 无可访问文本
+- **Reader sees**:视觉正常;屏幕阅读器读不出内容。
+- **Defense**:`visual-audit.mjs` 的 **img-no-alt** 和 **link-no-text** check。`<img>` 必须有 alt(装饰性可 `alt=""`);可见 `<a>` 必须有文本或 aria-label 或 title。
+
+### 1.14 品牌色在 hero 不可见(no brand presence)
+- **Reader sees**:页面一打开,看到的是白/米底 + 黑字,第一眼读不出是哪个 skill 的风格。
+- **Why**:作者按惯性把 nav 写成中性白/米色,brand 色只小剂量出现在正文深处。访客没品牌认知,第一眼的视觉信号决定"这是什么感觉"。
+- **Defense**:`visual-audit.mjs` 的 **no-brand-presence** check。截图 top 1440×500px,数该 skill 的 signature 色像素覆盖,低于阈值 → warn。
+- **Fix playbook**:nav bg 给品牌 tint(如 sage 用 `rgba(212,225,184,0.88)`)、hero kicker 用品牌色、或 hero 里放品牌色 badge / button。
+- **历史**:2026-04-21 sage nav 曾经用 `rgba(255,242,223,0.85)`(ember 暖米)导致 sage 页看起来是黄的,用户 push back。修法:sage nav 改 sage 绿 + 加机器化 check。
+
+### 1.15 Italic 滥用 / 铺满式 italic
+- **Reader sees**:每个 h1 / h2 / h3 / card-title 都是 italic,页面像婚礼请柬,不像 editorial。
+- **Why**:display 字体支持 italic 时(Fraunces / Instrument Serif / Lora),作者用 italic 代替层级拐杖,而不是用 size/weight/spacing 建立层级。
+- **Defense**:`visual-audit.mjs` 的 **italic-overuse** check。display heading ≥5 个时,italic 比例 >40% → warn。排除 pull-quote 内的 heading(italic 在那儿是挣得的)。
+- **规则**:`cross-skill-rules.md §J`。
+- **历史**:2026-04-21 ember/sage landing 第一版我把 italic 铺满每个 heading,用户 push back "不好看"。
+
+### 1.16 跨 skill 串味(cross-skill smell)
+- **Reader sees**:sage 页出现 ember 的金色 / Fraunces 字体,或 apple 页出现 anthropic 橙,视觉上"像另一个风格"。
+- **Why**:写作时复用了错风格的 snippet / token,或 inline style 硬编码了别的 skill 的 hex。
+- **Defense**:`visual-audit.mjs` 的 **cross-skill-smell** check。扫所有可见元素的 computed font-family + color/bg/fill,匹配禁忌清单就 warn。禁忌清单在 script 内的 `SKILL_SIGNATURES` 表。
+- **Fix playbook**:换成本 skill 的 token / 字体栈;如果真需要那个色 → 问自己是不是该换 skill。
+
+### 1.13 等宽 grid 里的卡片空心(hollow card)
+- **Reader sees**:3+ 列等宽 grid 里某卡片被拉到 400px 宽,但只有 3 行文本 + 一个小 code block,看起来"空心拉伸"。
+- **Why**:作者写 `repeat(3, 1fr)` 放不同重要性的选项,用 ABC 标注,内容根本撑不满这个宽度。
+- **Defense**:`visual-audit.mjs` 的 **hollow-card** (§10b) check:等宽 grid 的子卡 aspect > 1.8 且文本 < 180 字 → warn。
+- **例外(2026-04-21 tuning)**:子卡内有 ≥36px 大字号(stat-strip / metric display)时跳过 —— `18,000+ writers` 这种指标卡稀疏文本是设计本意。
+- **例外(2026-04-23 tuning · issue #8)**:子元素**本身没有任何卡片视觉锚**(无 border、无 box-shadow、背景色和父容器一致)时跳过 —— 这类 `<div>` 是父卡内的文本分组,不是独立的卡。场景:android-llm-bridge `webui-preview.html` Playground 指标栏 6 连警告。
+- **Fix playbook**:
+  - 如果真是内容层级不均:改为 1 hero + (N-1) 小卡(参考 cross-skill-rules §I);
+  - 如果内容真的少:改 `minmax(0, Npx)` 限宽,不走全行。
+
+### 1.17 SVG 内部 foreign hue(skill 色板外的色偷渡)
+- **Reader sees**:anthropic docs-home 的 phase-order 图第 3 列用 `fill="#eaf0f6"` / `stroke="#3a5c7a"` —— 冷蓝色。anthropic 调色板是暖系(orange / cream / warm-tan) + 可选 sage-done-green,冷蓝没有锚点,读出"apple 调色偷渡"。
+- **Why**:1.16 的 cross-skill-smell check 只对 3 个参考 hex(apple #0071E3 / sage #97B077 / ember #c49464)做 22-RGB 容差匹配。一个冷蓝 `#eaf0f6` 和 apple blue RGB 距离 ~212,不触发,但仍然不在 anthropic 自己的色板家族里。SVG 属性 fill/stroke 也没经过 CSS cascading,走的是另一条路径。
+- **How caught**:multi-critic 的 illustration 专家(solo critic 和 brand 专家都漏了)。2026-04-22 首次命中。
+- **Defense**:`visual-audit.mjs` 新 check **svg-foreign-hex** —— 扫 inline SVG 的 `<rect|path|circle|ellipse|polygon|text|line>` 的 fill / stroke 属性,每个 hex 对照当前 skill 的 `allowedPalette` 允许清单 + 通用中性色(黑白近灰),都不沾就 warn。`SKILL_SIGNATURES[skill].allowedPalette` 存允许 hex 数组。
+- **Fix playbook**:换成本 skill 允许色。4 档区分用暖中性档:`#dfeadb` (done-green) / `#fde4d6` (next-orange) / `#f0ede3` (cream-subtle) / 白 + dashed border。保留 orange 作唯一 accent。
+- **和 1.16 的关系**:1.16 是"别扮成另一个 skill"的大教义,通过 3 个参考 hex + 字体名走 computed-style 匹配;1.17 是 SVG-属性 内部 色板外新 hue 的 sub-case,**方向相反** —— 不是"匹配到某个具体 foreign hex"而是"不在本 skill allow-list 内"。两个 check 互补,不是重复。
+
+### 1.18 `<figure>` 没有 `<figcaption>`(语义 contract 违反)
+- **Reader sees**:肉眼没问题 —— 图里通常会有 inline SVG `<text>` 充当视觉说明。但 `<figure>` 和 `<figcaption>` 的 screen-reader 对应关系消失,语义上这是错的 figure。
+- **Why**:generator 把"看上去像 caption"的文字塞进 SVG 里(因为它就在图下方),然后跳过 `<figcaption>`。SVG `<text>` + 外层 `aria-label` 是部分 a11y 兜底,但不满足 figure+caption 的语义对。
+- **How caught**:multi-critic 的 illustration 专家。2026-04-22 首次命中。
+- **Defense**:`visual-audit.mjs` 新 check **figure-no-caption** —— 每一个 `<figure>` 必须含至少一个直接子 `<figcaption>`。
+- **Fix playbook**:在 `</svg>` 后加真的 `<figcaption>`,具体写清(轴含义 / 一行 takeaway / 来源),不是占位"Figure 1: ..."。
+- **复发(2026-06-13)**:ember changelog(medium)又出一个无 figcaption 的 figure,critic 抓的。fixture 复测确认 check 本身能抓裸 figure —— 漏的原因是 **warn 不挡 exit code**:visual-audit 只在 error 时 exit 1,只有 warn 的页面照样过,warn 列表没人读就发布了。提案:figure-no-caption 升 error,且 figcaption 文本非空(≥ 4 字符)才算数(空壳 `<figcaption></figcaption>` 不该过)。visual-audit 改动待人审。
+
+### 1.20 showcase page 上 cross-skill-smell 误报 (待修)
+- **Reader sees**:一张合法展示 4 个 skill 的 showcase 页(如 `/index.html` 介绍所有 skill),视觉上本来就**需要**显示 apple blue / ember gold / sage green / Fraunces / Instrument Serif 作为 skill 样品。visual-audit 把这些全部判为 cross-skill-smell。
+- **Why**:`cross-skill-smell` check 假设"一个 HTML 文件 = 一个 skill",但 showcase 页显式展示多 skill 是合法用法。
+- **How caught**:2026-04-22 learning-loop 在 index.html 上跑 figure-no-caption check 的同时,顺带跑 cross-skill-smell,产出 5 条 warn。所有 5 条都是合法展示,不是真的 smell。
+- **Defense**:待做 —— 给 `<html>` / `<body>` 加可选 `data-showcase="true"` 属性,visual-audit 的 cross-skill-smell 检查遇到这个属性就降级或跳过。或在 showcase 容器 `<section data-showcase>` 上做局部豁免。
+- **Fix playbook** (脚本待改):
+  - 短期:在 `bin/design-review` 加 `--showcase` flag,传给 visual-audit 后**跳过** cross-skill-smell。
+  - 中期:scanner 遇到 `data-showcase` 属性的 element 及其后代,对该区 cross-skill-smell 跳过,其余正常跑。
+  - 长期:showcase 页面用一个"多 skill 白名单"定义它合法引用哪些 skill 的元素。
+
+### 1.19 等宽 grid 里的"推荐卡"靠 border 撑层级
+- **Reader sees**:3-col 或 2×N `repeat(1fr)` grid 里,某一张卡有 `border: 2px solid orange` 或 "Now" pill 标出它是推荐项。但列宽仍然等分,所以读者得扫完内容才找到主项 —— border 在做"本该由 grid 比例做的事"。
+- **Why**:generator 默认 `repeat(3, 1fr)` 因为内容放得下,忘了 §I "等宽只在 peer 情况下用"。HARNESS-ROADMAP 命中两处:`#status` 3 张卡中间 `border:2px solid orange`,`#components` 8 张卡重要性不均。
+- **How caught**:multi-critic 的 composition 专家(一页两处)。2026-04-22 首次命中。
+- **Defense**:`visual-audit.mjs` 新 check **recommended-card-equal-grid**(heuristic)—— 对 `repeat(N, 1fr)` 的 grid,如果恰有一张子卡的 border-width/color/style 和兄弟不一样且 >= 1.5px 非中性,warn。启发式会有假阳性,仅作提示。
+- **Fix playbook**:
+  - 改列宽:`0.9fr 1.15fr 0.9fr`(中间大)或 `1fr 1.3fr 1fr`;
+  - 或切"1 hero + (N-1) alternatives":全行 hero 卡 + 下方 compact 行;
+  - 或分两段:"shipping today"(2-col 大)+ "queued"(3-col 小)。
+
+### 1.21 非等宽 3-col grid 第 1 列更宽 = 读作"左重",不是"hero 领头"
+- **Reader sees**:`grid-template-columns: 1.4fr 1fr 1fr`(或任何 `Xfr 1fr 1fr` 且 X > 1.2)三列布局,本意是"放大第一列让它当主角",实际视觉上读成"整行的重量被拽向左边"。容器本身 `margin:0 auto` 居中也救不回来 —— 内容分布先于容器对齐定义视觉重心。
+- **Why**:hero 卡和 peers 并排且在**第 1 位**,第一列宽度被读作"row 的起始点偏移",不是"这一列被特别处理"。位置 1 没有相邻对称的 peer 做对冲 → 非对称被放大感知成失衡。hero 在**中间**(`1fr 1.2fr 1fr`) 两侧对称,读作"被抬高的中心";hero 在**第 1 位**就读作"重心下坠"。
+- **How caught**:人眼(2026-04-22)。composition-critic subagent 给 1.4fr 方案打 91/100 还建议"再宽一点" —— AI 评审认可了人眼判定崩坏的方案。`visual-audit.mjs` 的 grid 相关 check(hollow-card §10b / recommended-card-equal-grid §1.19)都只针对**等宽** grid,不审非等宽 grid 的位置效应。
+- **Defense**:`visual-audit.mjs` 新 check **asymmetric-first-col-hero**(heuristic)—— 3-col grid 渲染后第 1 列宽度 ≥ 1.2× 其他列最小值,且第 1 列不是"全行 hero"(`grid-column: 1 / -1`)、不是"anchored hero"(深底色 lum<0.25 或 chromatic border-left ≥ 3px) → warn。启发式,仅作提示。
+- **例外(2026-04-23 tuning · issue #9)**:grid 内含 `input / select / textarea / [contenteditable] / output` 时跳过 —— 这是表单行(label + control + unit)模式,宽度不对称是数据录入行的固有语义,不是内容 hero 布局。场景:android-llm-bridge `webui-preview.html` Playground 滑块参数面板 ~12 连警告。
+- **Fix playbook** (按优先级):
+  1. **1 hero 全行 + (N-1) alt 下一行**(推荐)——hero 独占 `grid-column: 1 / -1`;
+  2. **居中放大** `1fr 1.2fr 1fr`——hero 在中间,两侧对称;
+  3. 保留第 1 列宽 → 加视觉锚(深底 + accent border-left),让它读成"不同材质";
+  4. **禁止**单纯拉宽第 1 列当 hero 手段(`1.4fr 1fr 1fr`)。
+- **和 1.19 的关系**:1.19 是**等宽** grid 用装饰建层级(proportion 没承担 hero 的活被装饰接管);1.21 是**非等宽** grid proportion 放错位置(用了 proportion,但 hero 在第 1 位没对称 peer 对冲,读成失衡)。两者互为对照。
+
+### 1.22 `<span class="lang-zh">` 内半角 ASCII 标点(,/;/:)打破 CJK 字体 metrics
+- **Reader sees**:中文段落里夹 `,` `;` `:` 半角标点,字体栈是 Noto Sans SC / Noto Serif SC(§H),半角标点按 Latin metrics 渲染,和周围的 Han 字符 kern 不一致,行内视觉出现 "抖一下" 的不均匀。大段中文读起来像标点松了。
+- **Why**:作者在写 `<span class="lang-zh">` 段落时,习惯性继续用英文段落里用的半角 `,` `;` `:`。中英文在同一 HTML 里切换时,语言栈切换了但标点没跟着切。`。` 句号多数作者会记得改,但 `,` `;` `:` 容易漏 —— 编辑器默认输入法半角状态下直接敲出来。
+- **How caught**:multi-critic 的 brand + copy 双抓(2026-04-24, anthropic comparison canonical v1)。brand critic 用 "Noto CJK 的 Latin metrics 打破行内节奏" 的角度说清楚为什么这不是单纯"审美偏好"而是渲染问题;copy critic 也同时标出,但说 "out of lane · typography critic own this"。
+- **Defense**:`verify.py` 新 check **zh-halfwidth-punct**:扫 HTML 里所有 `<span class="lang-zh">…</span>` 段落,若 body 内含半角 `,` `;` `:`(非 URL / 非 identifier · 通过"标点前后至少一个 CJK 字符" heuristic 降误报)→ fail,提示替换为对应全角 `,` `;` `:`。
+- **Fix playbook**:
+  - CSS 段落:`<span class="lang-zh">` 内部的 `,` → `,` · `;` → `;` · `:` → `:` · `!` → `!` · `?` → `?`
+  - **保留半角**的场景:代码块(`<code>` / `<pre>`)· URL / 路径 · identifier(如 `record_id 882091`)· 仅含数字/字母的 list item(`grep, git, any editor works` 这种 —— 但这种通常在 lang-en 里,zh 侧应用顿号 `、`)
+  - 重复性场景用脚本替换:见 2026-04-24 commit 里的 python one-liner · 限定 `<span class="lang-zh">` 范围,避免误伤 en span
+- **延伸**:适用所有使用 anthropic/apple/ember/sage design 的双语页。所有 canonical 的 zh 侧都要过这一条 check。
+- **缺口(2026-06-13)**:字符类只有 `,;:` —— ASCII `?` `!` `(` `)` 贴着 CJK 照样通过(sage changelog + sage faq 共 18 处由 critic 抓出,机械检查 0 报)。提案:把检查的字符类扩为 `[,;:?!()]`,对应全角 `？！（）`;同一位置顺带扫 U+30FB(见 §1.39)。verify.py 改动待人审。
+
+### 1.23 canonical 页缺 generator self-diff note · critic 没靶子
+- **Reader sees**:critic(solo 或 4 专家)评审 canonical 时只能凭感觉说"布局不错""copy 平衡"等印象级评语,没法指出作者"为什么选 A 不选 B"的取舍站不站得住。下一个作者想 port 这张 canonical 到另一个 skill,得翻 .md 逆向推断设计意图,搬到新 skill 时把作者的 trade-off 搬丢。
+- **Why**:generator 写完 HTML 不会天然写出"我选了 two-truths 框架不选 declare-winner 框架,因为 comparison 一开头就站队立刻失去信任"。HARNESS-ROADMAP Phase 03 的模型弱点就是这条:模型天然不 articulate 自己的设计决策。没有强制:critic 只能凭感觉,同 page-type 不同 skill 的 port 过程把 trade-off 当成偏好搬丢。
+- **How caught**:HARNESS-ROADMAP 长期挂 Phase 03 "Partly done",2026-04-24 的 comparison canonical 过 multi-critic 时 4 位 critic 都没引用作者决策——不是他们水平不够,是作者没留下靶子。
+- **Defense**:`verify.py` 新 check **canonical-self-diff**:任何路径含 `/references/canonical/` 的 HTML,必须 embed `<!-- design-review:self-diff v1 ... /design-review:self-diff -->` HTML 注释块,内含 `Skill:` / `Page-type:` / `Created: YYYY-MM-DD` / `Decisions`(至少 3 条 · `[id] chose "A" over "B". Because: ...` 三段格式)/ `Known trade-offs:` 五个字段。缺任一 → fail。Contract 详见 `cross-skill-rules.md §M`。
+- **Fix playbook**:
+  - 生成新 canonical 时,作者完稿后把 5-7 条关键 decision + 2-3 条 trade-off 写成 self-diff 注释,embed 到 `</body>` 前。`Because:` 段必须回答"为什么不选替代方案",不是"A 的优点"。
+  - 历史 canonical(2026-04-24 前)从对应 `.md` 设计决策里提取,明确标明"derived from existing canonical.md"而非作者原笔,但作为 critic 靶子已够用。
+  - 修 placeholder check(`verify.py` 的 check 1)先剥 self-diff 块再扫方括号 —— self-diff 的决策 id `[hero-framing]` 不是占位符。
+
+---
+
+### 1.33 文字撑破自己的盒子 · 大数字溢出网格列压到邻列
+- **Reader sees**：hero stat 一行 `3 / 124/256 / py / boot`，其中宽的 `124/256` 在 72px 大字下把右边的 `py` 压住了，两段字叠在一起。换窄一点的视口更明显。
+- **Why**：`.glass-stat-number` 是 `display:block` + `overflow:visible`。当它所在的网格列用 `grid-template-columns: repeat(4, minmax(0, max-content))` 时，`min=0` 允许列在空间不够时缩到内容宽度**以下**；不换行的大字（`124/256` 字形宽 260px）于是溢出只有 205px 的列，向右压到下一个 stat。要命的是**元素的边框盒不会随溢出长大**——`getBoundingClientRect()` 返回的还是被夹住的 205px 列宽。所以 §1.32a 的"子撑破父"（盒 vs 父盒）和 §1.25 的 text-overlap（盒 vs 兄弟盒）**都看不到**：盒子之间还有 64px 干净间距，溢出的字形对盒几何完全隐形。单宽度渲染又让"压到邻列"在 1440 下只是 9px 擦边（不触发），在用户更窄的视口才真叠——盒子检查 + 单宽度，双重盲区。
+- **How caught**：2026-06-16 加 check `text-glyph-overflow`（§1.32 同区，12c2）。不量盒子量**内容真实宽度**：`el.scrollWidth − el.clientWidth > 3px` → error。`scrollWidth` 即使在 `overflow:visible` 下也反映内容撑开的全宽，所以**在 gate 的单一 1440 视口就能抓到根因**（文字超出自己的格子 55px），不依赖"刚好在某个宽度叠上"。scope：`.glass-stat-number` + `[data-no-wrap-text]` 总查（不看字号）；**2026-06-16 扩展（issue #20 FU1）**：再加一遍通用扫描——任何 `white-space: nowrap/pre`、字号 ≥32px、`overflow:visible` 且直接含文字的元素都查，不止 glass stat（排除 `pre`/`code`，那两类由 §1.32a layout-overflow 管）。`overflow-x` 为 auto/scroll/hidden/clip 的豁免（设计好的截断/滚动不算）；`[data-allow-text-overflow]` 显式豁免跑马灯类。标定：修前 09g 命中 `"124/256" 内容 260px 撑破 205px 盒 55px`，修后（`minmax(max-content, 1fr)`）全 22 页 0 命中。
+- **Defense**：机器兜底 `text-glyph-overflow`（量 scrollWidth 不量盒）；hero-stats 网格用 `minmax(max-content, 1fr)` 而非 `minmax(0, max-content)`，让列不小于内容宽。
+- **Rule**：判文字溢出 / 重叠不能只信元素的 `getBoundingClientRect()`——`display` 块 + `overflow:visible` 时盒子被布局夹住、溢出的字形对盒几何隐形；要用 `scrollWidth`/`clientWidth`（或文字的 `Range.getBoundingClientRect()`）量内容真实范围。`minmax(0, max-content)` 配不换行大字是 footgun。
+
+### 1.33b 网格列 minmax(0, max-content) 配大字 · 静态查根因
+- **Reader sees**：和 §1.33 同样的"大字压邻列"，但有时在当前宽度还没真叠——只是迟早会。
+- **Why**：§1.33 的 `text-glyph-overflow` 量的是"此刻有没有溢出",依赖渲染宽度刚好让它溢。根因其实是 CSS 声明本身：`grid-template-columns` 里写了 `minmax(0, max-content)`（含 `repeat(N, …)`），`0` 下限让列能缩到内容以下。只要这列里坐着不换行的大字，换个更窄的宽度它就会溢。
+- **How caught**：2026-06-16 加 check `grid-track-shrink-risk`（§1.32 同区，12c3），warn。`getComputedStyle` 会把 `minmax(0, max-content)` 解析成 px、看不出原式，所以这条**扫样式表**（和 margin:auto 那条一个套路）：cssRules 里 `grid-template-columns` 命中 `minmax(0, max-content)` 的选择器，再看它名下的网格是否真坐着 ≥28px 不换行的文字 → warn。它查的是"会出事的写法"，不等真叠就提醒。
+- **Defense**：网格列要能装下不换行大字时，用 `minmax(max-content, 1fr)` / `minmax(min-content, …)`，别用 `minmax(0, max-content)`；或让文字允许换行。
+- **Rule**：`minmax(0, …)` 的 `0` 下限意味着"这列可以缩到比内容还小"。配定宽内容（不换行大字、固定尺寸图）就是把溢出写进了 CSS——静态就能看出来，不必等某个视口才发现。
+
+### 1.34 宽度相关的碰撞 · 只在更窄视口才叠
+- **Reader sees**：1440 下看着没事的两段字 / 一个表，在窄一点的窗口里就叠上了或横向出滚动条。
+- **Why**：overlap / overflow 这几条几何检查只在一个宽度（默认 1440）跑。布局随宽度变：列在 1440 有富余、在 1024 就挤；`minmax` 列、`flex-wrap`、百分比宽都会让"1440 下 9px 擦边"在更窄处变成真叠。单一测试宽度看不到这类。
+- **How caught**：2026-06-16 加第二视口几何复查（§1.32 同区，12d，issue #20 FU2）。主跑（1440）之后，把同一套检查在更窄的视口（默认 1024）再跑一遍，只留**宽度相关**的几类（`text-overlap` / `text-glyph-overflow` / `layout-overflow` / `page-overflow-x`），去重后作为 **warn** 追加，标注 `[at 1024px viewport]`——只提醒，不让桌面优先的页因此挂掉。实测：31 张 canonical 在 1024 各只冒 ~1 条真擦边，不是误报洪水。调宽度用 `--viewport2=WxH`，关掉用 `--no-second-viewport`；主跑已经是窄视口时自动不做第二遍。
+- **Defense**：几何检查别只信一个宽度；宽度相关的碰撞要在第二个更窄的视口复查。
+- **Rule**：一个测试宽度的"没事"只是那个宽度没事。overlap / overflow 是宽度的函数,至少两个宽度才说得清。
+
+---
+
+### 1.32 子元素撑破父容器 · margin:auto 块没居中
+- **Reader sees**：一张 8 列宽表（cell 里是不换行的长 `<code>` 串）从 1180px 的 shell 右边突出去 392px，页面横向滚动、视觉偏右；或一个本该居中的块整体偏向一边。
+- **Why**：块级盒不会为溢出的内容长大——`width:100%` 的 table 算完最小内容宽度后直接刺穿 max-width 容器，shell 自己还是居中的（bbox 正常），突破的是它的孩子，逐容器看"都对"，组合起来坏。margin:auto 偏移同理：意图在 stylesheet 里（auto），渲染时被 position 偏移 / 宽度覆盖 / 溢出子元素破坏，肉眼难定位。
+- **How caught**：2026-06-12 加两个 check（issue #11）。`layout-overflow`——内容型块元素（table/pre/img/video/iframe/canvas/figure/svg）bbox 与直接父容器比对，突破 > 8px → warn，输出子/父 box 全量数据（L/R/W）方便定位；只查 static/relative（absolute 装饰层合法越界，glass aurora 就是），父容器 overflow-x auto/scroll/hidden 全豁免（设计好的横滚/裁切不算）。`margin-auto-offcenter`——**意图必须从 stylesheet 读**（getComputedStyle 把 auto 解析成 used px 值，issue 原型代码在 Chromium 上永远不触发），扫 cssRules 收集 marginLeft/Right 双 auto 的 selector 再测量左右 gap，Δ > 12px → warn；flex/grid 父容器豁免（auto margin 在那里是对齐工具不是居中意图）。实现坑：支持 CSS nesting 的 Chromium 里每条 CSSStyleRule 都自带空 .cssRules，walk 时先判 style 再递归，不能 either/or。标定：repro 双阳性命中（869px 表格突破 / Δ160px 偏移），横滚包裹 + absolute 层 + flex 居中三阴性静音，canonical + docs 全量回归 0 假阳。
+- **Defense**：机器兜底 `layout-overflow` + `margin-auto-offcenter`；宽表的正确写法是包一层横滚容器（glass `.glass-table` 区已有 overflow 配方）。
+- **Rule**：宽内容要么约束宽度要么给它设计好的滚动容器，不准让它刺穿版心。
+
+---
+
+### 1.40 闭合 `<details>` 手风琴的内容被几何检查当成可见 → 假叠字
+- **Reader sees**:截图上手风琴正常收起、只显示问题,排版干净;但 visual-audit 报一堆 `text-overlap` warning,把"看不见的答案"和"后面的问题"算成叠了。4 张 faq canonical(anthropic/apple/ember/sage)各报 7–16 条,全标 §1.34 的 `[only at 1024px]`,更像真窄屏 bug。
+- **Why**:原生 `<details>` 闭合时只绘制 `<summary>`,其余内容不画。但 Chromium 仍给闭合内容返回非零 `getClientRects()`、computed `visibility:visible`/`display:block`/`opacity:1` —— 布局算了、只是不绘制。text-overlap 的 leaf 过滤只挡 `display:none`/`visibility:hidden`/`opacity:0`,挡不住这种"几何在、像素不在"的幽灵内容,于是闭合答案的文字和下一个问题的文字被判重叠。1440 主跑因宽列下文字横向不够叠没触发,1024 第二视口窄列换行后越阈值 → 被 §1.34 标成窄屏 warn。
+- **How caught**:2026-06-25 过 WIP faq 页,机械门报"叠"但截图干净,playwright 实测 `openCount:1` 却 `visAnswers:14`、闭合答案 box 溢出盖住后项 → 定位是闭合 details 的幽灵几何,不是真叠。
+- **Defense**:visual-audit text-overlap 的 leaf 过滤加 `inClosedDetails(el)` —— 元素最近的 `details:not([open])` 祖先存在、且不在该 details 的 `<summary>` 内 → 跳过(闭合内容不绘制)。两个视口共用同一 check,一改都好。影响面:仅含闭合 `<details>` 的页;现有已提交 canonical 无一用 details,零回归。
+- **Rule**:几何 / 重叠检查不能只信 `getClientRects()` + computed visibility —— 闭合 `<details>` 的内容"测得到、画不出"。判可见性要把闭合 details 的非-summary 内容也算隐藏;同类幽灵(`content-visibility:hidden`、`hidden` 属性、`inert` 子树)日后出现就在同一过滤点扩展。
+
+---
+
+### 1.39 lang-zh 里用片假名中点 ・(U+30FB)当分隔符
+- **Reader sees**:zh 文本里的分隔点比正常间隔号宽、左右间距不对 —— `・` 是片假名中点(全角,日文排版字符),不是中文间隔号 `·`(U+00B7)。
+- **Why**:两个字形肉眼近似,IME / 模型输出容易混入。§1.22 的检查只盯半角 ASCII `,;:`,U+30FB 是全角字符,完全不在字符类里。
+- **How caught**:2026-06-13 candidate canonical critic 评审,anthropic changelog(机械检查 0 报)。
+- **Defense**:待加 —— `verify.py` 提案:zh 标点检查同时扫 lang-zh body 里的 U+30FB,提示换 `·`(U+00B7,或按语义换顿号 `、`)。和 §1.22 的扩展是同一个检查位置。
+- **Rule**:zh 分隔点一律 `·`(U+00B7);日文排版字符不进 lang-zh。
+
+---
+
+### 1.38 双语页 italic 引用在 zh 侧渲染合成斜体(faux italic)
+- **Reader sees**:zh 模式下 display 字号的引用块整段是机器斜过去的中文 —— CJK 字形被 synthetic oblique 强行倾斜,廉价且难读。
+- **Why**:CJK 字体(PingFang SC / Noto SC 系)没有真 italic。EN blockquote 设计上用 italic;zh 侧的字体覆盖只换了 `font-family` 没写 `font-style: normal` → 浏览器对 CJK 做合成斜体。cross-skill-rules §G 的模板只给 `body / p / li` 配了 normal,blockquote 不在选择器里,正好漏。
+- **How caught**:2026-06-13 critic,apple faq(medium)+ apple landing。apple 用 PingFang 系统栈(§H 的例外)最显眼,但类是跨 skill 的 —— 任何 italic 设计元素 + CJK 文本都中(Noto SC 同样没有 italic)。
+- **Defense**:待加 —— `visual-audit.mjs` 提案 **cjk-faux-italic**:flip 到 `data-lang="zh"` 后扫所有含 CJK 的叶子元素,computed `font-style` 是 italic/oblique 且 font-size ≥ 18px → warn。
+- **Fix playbook**:zh 字体覆盖一律带 `font-style: normal`,且写在**不被 data-lang gate** 的选择器上(如 `blockquote .lang-zh`),否则 en 模式下检查不到;zh 侧的强调改用色 / weight / 引号,不用斜体。
+
+---
+
+### 1.37 canonical 的 .md / self-diff 描述意图而非渲染结果(decision-record drift)
+- **Reader sees**:肉眼看页面没问题。但 .md 说 hero 左对齐,渲染是居中;self-diff 宣称"连续 rail",渲染是按月分段。下一个 critic 拿 .md 当 rubric → 按错的标准评;下一个 port 作者照 .md 复刻 → 把没实现的意图当事实搬走。
+- **Why**:.md 在 HTML 改版前写好(或边写边改 HTML,改完忘了回头同步),记录的是当时的打算。机械检查只查 self-diff 的字段齐不齐(§1.23),不查它说的是不是真的 —— 声明是自然语言,没有渲染兜底。
+- **How caught**:2026-06-13 critic,sage team(high)+ apple changelog + sage faq。critic 把 .md 当评分标准对照渲染,正好暴露 drift —— 这也证明 .md 写错比不写更糟。
+- **Defense**:编辑规则,无法机械化:canonical 完稿后,逐句核对 .md / self-diff 里每个**可观察的版式声明**(对齐 / 分段 / 列数 / 颜色 / 组件名)和渲染截图一致;HTML 后续改动必须同 commit 更新 .md。critic 固定评审项:".md 与渲染 diff"。
+- **Rule**:.md 是下一个 critic 的 rubric。每一句版式声明都要对得上渲染,对不上就改文档或改页面,二选一。
+
+---
+
+### 1.36 半套覆盖全局元素样式 → code chip 不可读
+- **Reader sees**:sage faq 的 `<code>` chip 文字几乎隐形 —— 对比度 ~1.2-2.1:1。
+- **Why**:全局 css 给 `code` 配的是**成对**的 color + background;页面局部(inline style 或 page-scoped css)只覆盖了其中一半 —— 改了 `color` 继承全局浅 `background`,或改了 `background` 继承全局绿 `color`。半套覆盖把一对设计好的颜色拆散。contrast 检查的 ctaSelectors 只列按钮 / 徽章类,`code` / `kbd` 不在扫描清单里。
+- **How caught**:2026-06-13 critic,sage faq(high)。
+- **Defense**:待加 —— `visual-audit.mjs` 提案:把 `code, kbd, mark, [class*="chip"]` 加进 contrast 扫描清单(error < 3,warn 3-4.5,和现有按钮一致)。
+- **Rule**:覆盖全局有样式的元素(code / kbd / blockquote)时,color 和 background **必须成对**写;最好把全局规则抄过来整对改,或用现成 modifier class。
+
+---
+
+### 1.35 可导出统计失实(derivable-stat dishonesty)
+- **Reader sees**:changelog 宣称 "median gap 14 天",但按页面自己印出来的发布日期算是 25 天;versioning 图示画着 v3.6.1,页面的 feed 里从没发过这个版本。读者随手一算就能拆穿 —— 一处失实,全页数字失信。
+- **Why**:generator 先写叙事再填数字,数字来自"听起来合理"而不是从页内数据重算;或图示复用模板里的示例版本号,没对照本页 feed。
+- **How caught**:2026-06-13 critic,ember changelog(high)+ sage changelog(medium)。
+- **Defense**:编辑规则(本行 + ember / sage dos-and-donts):任何能从页面自身内容推导的数字(中位数 / 计数 / 总和 / 日期跨度 / 版本号)发布前必须用页内数据重算一遍。部分机械化提案:`verify.py` **version-token cross-check** —— SVG `<text>` 里出现的 `vX.Y.Z` 必须同时出现在页面正文里,否则 warn;中位数 / 计数类无法静态机械化,归 critic 固定评审项。
+- **Rule**:数字的来源只能是页内数据或外部事实,不允许"叙事需要"。
+
+---
+
+### 1.48 整卡片套 `<a>` → 卡内 `<h3>`/`<p>` 继承链接色不是正文色
+- **Reader sees**:一张卡片的标题和正文整段是链接色(橙 / 蓝 / 紫),不是正文墨色,整块读起来像"一整块巨型链接"。
+- **Why**:整张卡片用 `<a class="anth-card">`(或类似)包裹,anchor 自身是链接色;卡内 `<h3>`/`<p>` 没做 color 复位 → 继承 anchor 的链接色。正文该是 `--anth-text` / `--anth-text-secondary`。
+- **How caught**:2026-07-15 design-critic;机械检查(verify.py + 旧 visual-audit)0 报。
+- **Defense**:`visual-audit.mjs` 新增 **anchor-card-color-leak**(warn,§12g):某 `<a>` 自身 computed color 是"链接色"(非墨色 —— 亮或高饱和)时,扫其 `h1–h4` / `p` 后代,后代 computed color ≈ anchor 色且同样非墨色 → warn。判据读 anchor **自身**的颜色,跨 skill 通用(橙 / 蓝 / 紫都吃)。行内文本链接没有 h/p 后代,永不触发;已正确复位的卡片 anchor(如 canonical `.canon-card` 自设 `color:var(--anth-text)`,墨色)开头就被跳过。10 张 anthropic canonical 回归 0 假阳,正样双命中(h3 + p 继承橙色)。
+- **Fix playbook**:卡片 anchor 给标题 / 正文显式复位 —— `.navcard h3, .navcard p { color: var(--anth-text) }`(正文用 `--anth-text-secondary`);或卡片别整块套 `<a>`,只在标题或"了解更多"处放链接。
+- **Rule**:任何把内容块整体包进 `<a>` 的写法,块内的 heading / 正文都要显式复位到正文墨色。
+
+---
+
+### 1.47 块级 `.anth-code` 误套到行内 `<code>` → 撑出高框压叠上下文
+- **Reader sees**:一行正文里的行内代码变成一个 ~80px 高的框,盖住上下两行文字 —— 连带引发一批 text-overlap。
+- **Why**:`.anth-code` 是给块级 `<pre>` 设计的代码样式(padding:32px)。作者按肌肉记忆把它套到行内 `<code class="anth-code">` 上,32px 上下 padding 把行内盒撑到 ~80px 高,纵向压盖相邻行。
+- **How caught**:2026-07-15 design-critic;根因是它间接触发的一批 text-overlap,直接判据此前没有。
+- **Defense**:`visual-audit.mjs` 新增 **inline-code-block-padding**(warn,§12f):行内 `<code>`(祖先非 `<pre>`、display 非 block/flex/grid)渲染高度 ≥ 2× font-size **且**上下 padding 合计 ≥ font-size → warn。换行的行内代码也会变高,但它 padding 只有几 px,padding 检查把两者分开。正确行内 `<code>`(padding 2px 6px)两条检查都不过。10 canonical 回归 0 假阳,正样命中(82px 高 / 64px padding)。
+- **Fix playbook**:行内代码用裸 `<code>`(anthropic.css 已给 padding:2px 6px);`.anth-code` 只留给块级 `<pre>`。2026-08-03 起 anthropic.css 加了 `code.anth-code:not(pre code)` 回落规则,加载该样式表的页面误套已无害;本检查继续守住不加载它的页面(如内联样式导出页)。
+- **Rule**:块级组件样式(大 padding / 大圆角)不往行内元素上套。
+
+---
+
+### 1.46 hero 内层窄块只设 max-width 不设 margin:auto → 整块左贴边
+- **Reader sees**:hero 看着"文字居中"其实整块偏左 —— 1440 视口下 hero 版心偏左 ~166–310px,右边一大片空。text-align:center 把**文字**在窄块里居中,骗过肉眼,块本身贴着左边缘。
+- **Why**:anthropic hero 版式是 `.anth-hero`(全宽 + text-align:center)里套一个 max-width 窄块(820 / 860 等)收窄版心。窄块靠 `margin:0 auto` 才居中;作者只写了 max-width 忘了 margin auto → margin-left 算成 0,块左贴边。§1.32b 的 margin-auto-offcenter 只测**已经被 margin:auto 规则命中**的块(有居中意图、执行坏了),这类是相反盲区 —— 压根没有居中意图,它看不见。
+- **How caught**:2026-07-15 design-critic;机械检查(verify.py + 旧 visual-audit)0 报。
+- **Defense**:`visual-audit.mjs` 新增 **hero-anchored-left**(warn,§12e):`.anth-hero` 内 display:block 的 div / section / header / article,设了有效 max-width、比父窄 ≥ 48px、宽 ≥ 200px,且**不**被 margin:auto 规则 / 内联样式命中(命中的归 §1.32b),渲染后 leftGap < rightGap 且 Δ > 64px(左贴边)→ warn。`.anth-container` 自带 `margin:0 auto`,渲染 Δ≈0 且在 autoSelectors 里,双重豁免。10 canonical 回归 0 假阳,正样命中(Δ620px repro)。注意跑回归时静态服务器要 root 在能让 `../../assets/*.css` 解析到的目录(root 在 canonical 目录会 404 掉 anthropic.css,页面裸渲染 → 整页左贴边 → 假阳一片)。
+- **Fix playbook**:hero 内层块直接用 `.anth-container`(已含 `margin:0 auto`),或显式补 `margin-left:auto; margin-right:auto`(等价 `margin-inline:auto`)。只写 max-width 不写 margin auto 的窄块一律左贴边。
+- **Rule**:任何靠 max-width 收窄的居中块,max-width 和 margin:auto 成对出现,缺一不可。
+
+---
+
+### 1.45 文字墙 — 长段落不分段、不用列表 / 色块分组
+- **Reader sees**:页面中部一大块连续文字,没有段落切分、没有列表、没有 callout 色框,读起来喘不过气。用户 2026-07-06 直接反馈:"中间如果出现太多文字没有分段落或者用更清晰的图去表达,或者按颜色框把文字段落进行区分,阅读不美观"。
+- **Why**:text-desert(§1.31)只管"2600px 无**视觉元素**",抓不到"有图但文字本身成墙"——一段 600px 的巨型 `<p>`、或 5 个连续长段落 1200px,都在 2600px 阈值之下溜过。generator 侧也没有"单段落最大行数"的硬规则。
+- **How caught**:用户对存量产物的反馈(多页面反复出现)。
+- **Defense**:`visual-audit.mjs` 新增 **prose-wall**(warn)两个触发条件:(a) 单个 `<p>` 渲染高 > 420px(≈15 行);(b) ≥4 个连续 `<p>` 兄弟累计 > 900px 且中间无 heading / list / figure / table / blockquote / admonition 分隔。`data-allow-prose-wall`(自身或祖先)显式豁免。7 美学 canonical 全量回归 0 假阳。
+- **Fix playbook**:单段 ≤ 5 行;≥3 个并列要点改 `<ul>`;成组论述装进 `.anth-admonition` / 色框卡(各美学的 callout 组件)分组;概念关系改图表达(图密度合约 diagram-craft §12 本来就要求)。
+
+---
+
+### 1.44 全页内容挤在窄列 — 左右留白吃掉版心
+- **Reader sees**:1440 宽的屏幕上左右各 400px+ 空白,正文、表格、图全部挤在中间一条窄列里。用户 2026-07-06 直接反馈:"经常出现左右留白太多,中间的字都挤在了一起"。
+- **Why**:generator 把整页所有 section 都套了同一个窄容器(或自定义 max-width < 640px),没按 layout-patterns 容器选择表分级 —— 720 窄列只该给纯 prose,内容承载块(table / figure / 多列 grid / pre)该用 960 / 1200。此前没有任何机器检查看 HTML 内容列宽(svg-letterbox 只管 SVG 画布内部)。
+- **How caught**:用户对存量产物的反馈。
+- **Defense**:`visual-audit.mjs` 新增 **narrow-content-column**(warn):viewport ≥ 1280 且页高 ≥ 1200px 时,扫全页 p / ul / table / figure / pre / container 等内容块的渲染宽度,**最宽的一块仍 < 640px** → 触发(合法的 720 单栏长文原型不会触发,因为容器本身 ≥ 720)。`<body data-allow-narrow-column>` 豁免。7 美学 canonical 回归 0 假阳。
+- **Fix playbook**:按 layout-patterns 容器选择表分级 —— hero / 表格 / 密图用 960 或 1200 容器,窄列只包 prose;密图直接 breakout(§1.29 / diagram-craft §8.1),对齐让位于可读性。
+
+---
+
+### 1.43 SVG 细描边连线穿过 `<text>` = 删除线效果
+- **Reader sees**:图里三个标签像被划了删除线 —— 一条 1.8px 的连线正好横穿文字。
+- **Why**:连线的几何和文字 bbox 撞了,而三个 overlap 检查都看不见细描边:§1.26 svg-shape-over-text 跳过 `fill="none"` 的 shape(描边线没有 fill),且 area ≥ 16px² / pct ≥ 10% 的阈值是为色块调的,1.8px 细线的 y 向交叠永远到不了 10%;§1.8 / §1.25 只看 text × text。另注意:线画在文字**下面**(DOM 序在前)也照样从字缝里透出来读成删除线,所以这个类不能像 §1.26 那样只查 DOM 序在后的 shape。
+- **How caught**:2026-06-13 critic,ember team。
+- **Defense**:待加 —— `visual-audit.mjs` 提案 **svg-stroke-through-text**:对 stroke-only shape(`line` / `fill=none` 的 `path`)不论 DOM 序,横向相交 ≥ 文字宽 60% 且穿过文字中线带 → warn。
+- **Fix playbook**:连线绕行(改 y / 加拐点)或文字挪出线带;线确实要从文字后面过 → 给文字加底色 halo(底 rect 或 `paint-order: stroke` 描白边)再 `data-allow-overlap`。
+
+---
+
+### 1.42 字面箭头写进带 ::after 箭头的链接 → 双箭头
+- **Reader sees**:apple 页链接渲染 "Learn more › ›";anthropic 页 "Read the docs → →"。
+- **Why**:5 个 skill 的 css 都由 `::after` 统一追加链接箭头(apple `\203A`,其余四个 `\2192`);作者按肌肉记忆又在链接文本里手打了一个。HTML 源码看是一个,渲染是两个 —— 不渲染就漏,且 critic 之外没人盯。
+- **How caught**:2026-06-13 critic,apple faq(high)+ team + landing 共 31 处。同类第二次复发:anthropic 2026-06-11(commit 5eea300)清过 32 处字面 `→`。两个 skill 各踩一次 → 必须机械化。
+- **Defense**:待加 —— `verify.py` 提案 **link-arrow-doubled**:扫 `.{prefix}link` 的内文,剥 tag 后含 `›` / `→` 且 class 列表没有 `--no-arrow` modifier → fail。
+- **Fix playbook**:删字面箭头,让 `::after` 出唯一的箭头;真的不要 ::after 箭头 → 加 `--no-arrow` modifier(此时字面箭头才是 sanctioned 的,5eea300 对 no-arrow 链接就是这么处理的)。
+
+---
+
+### 1.41 双语 stat strip 共享数字的单位在 zh 侧重复
+- **Reader sees**:zh 模式下 stat 读出 "**48h 小时**内首次回复" —— 单位出现两次(英文 `h` + 中文"小时")。
+- **Why**:stat strip 的大数字写成共享节点(不分语言),`48h` 自带英文单位;zh label 又以"小时内…"开头。en 模式读 "48h first-reply" 正常,zh 模式两个单位叠加。作者写双语 label 时只用 en 读了一遍。
+- **How caught**:2026-06-13 critic,anthropic faq + ember faq 各中一次(机械检查 0 报)。
+- **Defense**:待加 —— `verify.py` 提案 **zh-unit-doubling**(warn,heuristic):共享数字节点带 EN 单位后缀 + 邻近 lang-zh label 以中文单位词(小时 / 分钟 / 天 / 周 / 个月 / 年)开头 → warn。
+- **Fix playbook**:数字也拆 lang spans —— `<span class="lang-en">48h</span><span class="lang-zh">48</span>`,zh label 保留"小时内…"。单位不属于数字,属于语言。
+- **Rule**:双语页任何"数字 + 单位"组合,发布前用两种语言各读一遍。
+
+---
+
+### 1.31 长文无图 · "text desert"
+- **Reader sees**：连续两屏以上全是段落文字，没有任何图 / 表 / stat / mock。读者在第二屏开始跳读，第三屏直接滚到底——内容再好也没被读到。
+- **Why**：图密度合约（anthropic diagram-craft §12 / apple §9：≥3 步流程必须画图、>2 屏纯文字必须插视觉元素、每 1.5 屏 ≥ 1 个视觉元素）只写在 diagram-craft.md 里，而那个文档的触发条件是"画图前必读"——generator 没打算画图就永远读不到"何时必须画图"，鸡生蛋。用户反馈"每次都要提醒多用图"（2026-06-11）。
+- **How caught**：check `text-desert`——收集所有视觉元素（svg / figure / img / table / blockquote / pre / [class*=stat]，高 ≥ 60px；display:grid 且 ≥ 2 子元素、高 ≥ 200 的卡片区也计入），按 y 排序求最大纵向空隙（含页首页尾）。空隙 > 2600px（两屏）→ warn。豁免：页高 < 1800、md-mirror 文档镜像页（`.md-banner` 存在）、`<body data-allow-text-desert>`。标定：合法 canonical 最大空隙 2266px（apple feature-deep，卡区计入后），不计卡区时 pricing / product-detail 会出 3248px 误报——卡区计入是这个 check 成立的关键。回归 14 canonical + 2 demo 0 误报。
+- **Defense**：合约摘要上提到 anthropic SKILL.md 必读区 + sprint-contract §1b；机器兜底 `text-desert`。
+- **Rule**：编辑合约是每 1.5 屏 ≥ 1 个视觉元素；机器检查放宽到 2 屏只抓最严重的——不要把 2600px 当达标线。
+
+---
+
+### 1.30 工程图 0 饱和 hue · "幽灵图"发灰
+- **Reader sees**：架构图/流程图全是白卡 + 灰描边 + 灰字 + 灰线，读起来像未上色的 wireframe / "没做完"。页面色彩印象寡淡（用户反馈 2026-06-11："色彩不够丰富，不如上一版"）。
+- **Why**：v2 工艺把满填全部退成 8-12% tint + 空心环后，generator 学到"颜色越少越安全"，一路退到 0 饱和色。tint（l ≥ 0.85）提供不了色彩在场感——在场感来自实心色点 / 徽章 / 色条 / 彩色连线。v3 修正：tint 加深到 16-20%、小元素必须实心主色、每图 ≥ 2 hue（anthropic diagram-craft §0/§1）。
+- **How caught**：check `diagram-monochrome`（**只对 anthropic 生效**，apple 的灰阶 + 蓝单焦点是身份）——figure 内渲染宽 ≥ 300px 的 SVG，节点 rect ≥ 4 且 text ≥ 6（工程图判定），统计 fill/stroke 中 s > 0.25 且 0.15 < l < 0.85 的 hue 桶数，== 0 → warn。机器只抓 0 hue：存量合法单 hue 图有 5 张（comparison git 图 / timeline 等），"< 2 hue 即 warn"会全误报——**≥ 2 hue 是文档合约 + critic 评审项，不是机器检查**，这是有意的精度取舍。回归 0 误报；tint（l ≥ 0.85）和深色面板（l ≤ 0.15）不计 hue，窗口 mock 红绿灯三圆是饱和色，天然不会误报。
+- **Defense**：diagram-craft §0 反向红线 + §1 三条硬规则；机器兜底 `diagram-monochrome`。
+- **Rule**：颜色做语义不做填充，**但必须在场**。0 饱和 hue 的工程图和满宽色带一样是 bug，方向相反。
+
+---
+
+### 1.29 密图塞窄容器 · 22 个标签挤在 480px 里
+- **Reader sees**：一张节点很多的图被塞在正文列宽里，每个标签都缩成蚂蚁字，要凑近屏幕才能读。两边是大片页边距留白——空间有，图没用上。
+- **Why**：generator 先选了容器（prose 流里顺手 `anth-container`），再把内容硬塞进去；内容密度增加时它缩小元素而不是升级容器。正确顺序是 §8.1 先算：`<text>` ≥ 20 或列数 ≥ 4 → 必须 `anth-container--wide`（1200）breakout，1200 还不够就拆图，不准缩字号。
+- **How caught**：check `dense-diagram-cramped`——figure 内 SVG，`<text>` ≥ 20 且渲染宽 < 760px → warn。阈值标定：回归集所有 ≥ 20 text 的合法图渲染都在 1088px；blog-index 装饰卡 17-19 text @438px 必须放过（所以 N 取 20 不取 18）。它和 `diagram-tiny-text` 分工：tiny-text 抓"字已 < 9px"的症状，cramped 抓"字还没破线但密度注定该升档"的根因。同日 `diagram-tiny-text` 从 hero-only 扩到全部 figure 图（原版只查 grid-column 1/-1 的 hero figure，正文列里的图完全不查——本类 bug 的主要藏身处），扩域后即抓到 demos v1/v2 7.6px、ember/sage landing 8.8px、sage blog-index 9.0px 共 5 处存量违规，全部当日修复。
+- **Defense**：diagram-craft §8.1 选档表（720/960/1200 + scale ≥ 0.82 判据）；机器兜底 `dense-diagram-cramped` + 扩域后的 `diagram-tiny-text`。
+- **Rule**：内容多的图必须画大。先算尺寸再画，不是画完再塞。
+
+---
+
+### 1.28 viewBox 写大内容挤中间 · letterbox 留白
+- **Reader sees**：图两侧大片空白，实际内容缩在画布中间一窄条。为了"对齐"或"留呼吸感"，所有标签跟着内容一起变小，看不清；图的视觉重量也撑不起它占的版面。
+- **Why**：generator 先随手定了个宽 viewBox（常照抄模板的 1080/1200），内容画完只占中间 40-60%，两侧死空间逼标签变小。正确做法：viewBox 紧贴内容（内容 bbox 距边 ≤ 24px），§8.1 公式先算宽再画。
+- **How caught**：check `svg-letterbox`——figure 内渲染宽 ≥ 300px 的 SVG，求所有内容元素 client-rect 的 union，宽向填充率 < 72% 或高向 < 50% → warn。实现要点：**全幅背板必须剔除**（双轴 ≥ 96% 渲染框的元素，如 architecture.svg 的全幅面板底 / dot-grid 层），否则 union 永远等于 viewBox、check 形同虚设；用 client-rect 而非 getBBox，自动消化 transform。标定：figure 内合法图填充率 0.93-1.0，阈值 0.72 留足缓冲；高向阈值独立取 0.50（timeline 类天然扁，0.72 同阈值必误报）。逃生舱 `data-allow-letterbox`（刻意居中的 spot 插画）。已知限制：inset 面板（比渲染框小 24px 的面板）会被算进内容——只漏报不误报，方向安全。回归 0 误报。
+- **Defense**：diagram-craft §8.1 "viewBox 紧贴内容"；机器兜底 `svg-letterbox`。
+- **Rule**：留白是版式的事（容器 / margin），不是画布的事。SVG 画布里的空白只会偷走字号。
+
+---
+
+### 1.27 高饱和色块满铺图示 · "PowerPoint SmartArt 色带"味
+- **Reader sees**：架构图/框图里整条层级是满宽的高饱和色带（橙/蓝/绿/黑各占一条），白字浮在色带上。颜色占了 40%+ 版面，图看起来像 2005 年的 SmartArt，刺眼且廉价；信息层次反而被颜色淹没。
+- **Why**：generator 把"颜色编码类别"理解成"把类别区域涂满该颜色"。正确语义是：颜色以 8-12% tint 容器底 + 4px 色条 + 节点色点 + 彩色连线呈现，纯色满填只给 ≤ 56×56 的小元素（icon tile / 徽章 / 色点）。2026-06-10 审 anthropic/apple 两 skill 的 templates/diagrams/architecture.svg，发现旧模板本身就是三条满宽色带（anthropic 饱和覆盖 55%，demos/anthropic-design v1 四层图 39.8%）——模板教坏 generator，源头治理后重写（详见两 skill 的 `references/diagram-craft.md`）。
+- **How caught**：2026-06-10 加 check `saturated-band` —— 对每个渲染宽度 ≥ 300px 的 SVG，逐 rect 判"满宽彩色带"：HSL 饱和（s>0.25 且 l<0.85）、有效不透明度 ≥ 0.5、宽 ≥ 60% viewBox 宽、高 ≥ 24、面积 ≥ 8% viewBox。任一命中即 warn。**只抓 hue 饱和**，深色中性面板（l 低但 s≈0 的终端/深色窗口 mock，如 anthropic feature-deep 的命令面板）是合法模式不抓——第一版用"聚合饱和+极暗面积 > 30%"曾把该 mock 误报成 181.8%（重叠元素重复计数），同日改为本算法后 v1 老 demo 命中 2 条带（橙 APPLICATION + 蓝 DOMAIN 满宽层，780×88 / 13.2% viewBox；墨色 INFRASTRUCTURE 层因 s≈0 按设计不算）、14 张 canonical（anthropic 7 + apple 7）+ v2 demo + 8 张新模板 0 假阳。
+- **Defense**：
+  - 模板源头：`templates/diagrams/*.svg`（两 skill 共 8 件）已全部按 diagram-craft 标准重写，generator 复制即得正确画法。
+  - 文档：anthropic/apple 各自 `references/diagram-craft.md` §0 第一原则 + 色彩语义表。
+  - 渲染兜底：`visual-audit.mjs` 的 `saturated-band` check。
+- **Rule**：颜色做语义不做填充。画图时自查：把图缩成拇指大小，如果第一眼看到的是"几块颜色"而不是"结构"，说明颜色面积超标。
+
+---
+
+### 1.26 SVG 装饰 shape 压住 text · 时间线 dot / icon ring / decorative path 后画盖文字
+- **Reader sees**：SVG 框图里某段文字被一个圆点 / 矩形 / 路径"打了一拳"——文字中间出现一个色块，文字看不清或部分被遮。最典型场景：时间线主轴穿过卡片，时间线的圆点（`<circle cy="180" r="5">`）正好落在卡片内部文字（如 `resource_setup_logo_bmp`）的位置上，圆点 fill 是非透明 → 字被盖。
+- **Why**：SVG 没有自动 z-axis 排版，**绘制顺序 = 视觉前后**。后画的元素压在先画的之上。设计 SVG 时按几何分组方便（先画卡片、再画卡片内文字、最后画时间线穿插装饰），但卡片内文字的 y 区间和时间线 dot 的 y 区间撞了 → dot 把字盖住。`visual-audit` 的像素采样原则上能在 dot 颜色和文字颜色对比足够时抓到，但当 dot 和卡片底色匹配时肉眼看不见、pixel check 也不会抓；若 dot 和卡片底色不同，文字就明显被盖。2026-05-01 dog-food 一个外部技术文档项目的时序图发现某卡片橙色 timeline dot 压在卡片中部一行 mono 文本上。
+- **How caught**：2026-05-01 加新 check `svg-shape-over-text`（§1.26）—— 对每个 SVG 内的 `<text>` 找它**之后**画的（DOM 序）shape (`circle/rect/ellipse/polygon/path`)，只要 fill 非 none/transparent + bbox 重叠 ≥ smaller text 的 10% + ≥ 16 px²，就 warn。23 canonical 0 假阳。
+- **Defense**：
+  - **DOM 序优先**：能画在 SVG 最先的元素就先画（背景 → 装饰 → 内容文字）。如果 dot/装饰 必须最后画，验证它们的 bbox 不和已有 text 撞。
+  - **避免几何撞车**：时间线穿过卡片时，把时间线 y 坐标放在卡片**中线**，但卡片**文字**避开中线 ±dot.r 的范围；或者把时间线放在卡片下方独立 band，不穿过文字区。
+  - **同色 escape**：若 shape 是有意和卡片底色同色（仅装饰隐形效果），加 `data-allow-overlap` 显式声明。
+- **Rule**：写 SVG 框图后必须 `visual-audit` 跑一遍 `[warn] svg-shape-over-text`。任一 hit 必须 (a) 重排 DOM 让 text 在 shape 之后画、(b) 移动 shape bbox 不和 text 撞、(c) 加 `data-allow-overlap` 显式跳过。不允许"看着像没问题就 ship"。
+
+---
+
+### 1.25 文字 bbox 几何重叠 · audit 像素采样的盲区 · 跨 4 skill 通用
+- **Reader sees**：两段不同的文字（标签 + 描述、列头 + 数据、双列 code 块）在屏幕上像素叠在一起，下层文字被上层挡住或两层混在一起读不清。最常见 2 类：
+  - **类 a · SVG `<text>` y 轴贴脸**：手画 SVG 时硬编码 y 坐标，标题和副标题间距 ≤ 字号高度 → 字符上下挤压（kicker label 紧贴 description 行，间隔仅 1-2px font-metric）。
+  - **类 b · HTML `<code>` / `<span>` 横溢冲入相邻列**：双列 grid 里 code 块没设 `word-break: break-all` 或 `overflow: hidden`，长路径冲到下一格里（长 file path 100% 覆盖隔壁列内容）。
+- **Why**：visual-audit 是像素采样（pngjs 看 PNG 像素颜色 / 对比度），看不出**两个 DOM 文字框在几何上重叠**。原 §1.8 的 SVG-text-overlap 只覆盖单个 `<svg>` 内部 `<text>` 且要求 4px on both axes — 漏掉 1-3px y 轴贴脸 + 漏掉所有 HTML 文字。2026-05-01 dog-food 一个外部项目（12 页）抓到 72 处此类 bug audit 0 报，才发现盲区。
+- **How caught**：2026-05-01 加新 check `text-overlap`（§1.25）—— 扫描所有可见叶子文字元素 → 两两 bbox 相交 → 排除 ancestor/descendant → 阈值"重叠面积 ≥ 16 px² 且 ≥ smaller bbox 10%"→ 排除"x 对齐 + y ≤ 3px + 宽度比 ≥ 0.5"的 2 行堆叠 label（如 SVG 里的 SAME/IDEA 这种有意 2 行）。23 张 ship-ready canonical 跑回归 0 假阳。
+- **Defense**：
+  - SVG 画图时 y 坐标间距 ≥ font-size × 1.4（即 12px 字至少 17px 行高）。手画 SVG 不要用 11/12px 这种小字 + 直接拿编辑器目测。
+  - 双列 grid / flex 里的长 code / 长 URL：父容器 `min-width: 0` + 子元素 `overflow-wrap: anywhere` 或 `word-break: break-all`，强制断词不溢出。
+  - 真有意贴叠（tooltip / shadow / decorative layered text）：在该元素或其祖先加 `data-allow-overlap` 显式声明。
+- **Rule**：所有新写 / 改写的 HTML 都要跑 `visual-audit.mjs` 看 `text-overlap` 行。任何 hit 必须 (a) 改 layout 让 bbox 不交、或 (b) 加 `data-allow-overlap` 显式声明意图。不允许"忽略 warning 直接 ship"。
+- **2026-07-06 升级（用户反馈重叠反复溜过）**：text-overlap 改**两档严重度** —— 重叠 ≥ smaller bbox **40%** 且面积 ≥ 80px² 时升为 **error**（字面上叠着字，不是 near-miss，直接 block）；其余维持 warn。第二视口 rerun 的发现仍一律 warn（§1.34 语义不变）。
+
+---
+
+### 1.24 nav-cascade 吃掉 `.X-button` 的 white color · 跨 4 skill 同 bug 类
+- **Reader sees**：导航栏右边的 `Download` / `Get skills` / `Try it` 等 CTA 按钮，文字渲染成深字而不是白字，在彩色填充按钮上几乎看不见或对比度 fail AA。具体表现因 skill 而异：apple 是深字 + 0.8 透明在 blue 上 ~3.58:1（apple/feature-deep canonical 2026-04-28 实测踩过、visual-audit 抓到）；anthropic 是 `#141413` 在橙上 ~5.9:1 视觉错误但 contrast 过 AA（latent bug，visual-audit 不抓）；ember/sage 历史踩过同一类。
+- **Why**：CSS 选择器特异性 — `.X-nav a { color: var(--X-text) }` (0,2,1) 比 `.X-button { color: #ffffff }` (0,1,0) 强；nav 内的 button 元素继承 nav 规则的 color 而非 button 规则。apple 还多带一层 `opacity: 0.8` 二次伤害。是个**跨 skill 的 CSS-cascade 通病**，每个 skill 各踩一次。
+- **How caught**：apple/feature-deep canonical 2026-04-28 visual-audit `[warn] contrast 3.58:1` 抓到 nav `Download` 按钮；回头 audit 4 skill css 发现 ember + sage 已修（在 css 主源），anthropic + apple 没修。
+- **Defense**：
+  - 4 skill css 主源都加 `.X-nav a.X-button { color: #ffffff }`（apple 还要 `opacity: 1`）+ `:hover` 同。已在 ember.css / sage.css 已 ship；anthropic.css / apple.css 2026-04-28 升级。
+  - 4 skill `dos-and-donts.md` 都加一条 Don't 行（已在 ember + sage；anthropic + apple 2026-04-28 加）。
+  - 已升级到 css 主源后，page-scoped patch（如 apple/feature-deep canonical 临时加的 `<style> .apple-nav a.apple-button { color:#ffffff; opacity:1 }`）应移除。
+  - visual-audit 的 contrast 检查作为兜底（apple 这种 contrast 真 fail 时能抓；anthropic 的 latent 类 contrast 过 AA 时只能靠 css 主源 + dos-and-donts 双保险）。
+- **Rule**：每加一个新 skill，必须在它的 `<X>-design/assets/<X>.css` 加 `.X-nav a.X-button { color: #ffffff }` 规则 + 在 `dos-and-donts.md` 加 Don't 条。检查命令：`grep -c "\.X-nav a\.X-button" skills/X-design/assets/X.css` 应 ≥ 1。
+
+---
+
+### 1.49 figure 突破版心被判溢出 → 规则在逼着把图缩小或拆碎
+
+- **Reader sees**：一张按 diagram-craft 升到最大容器档(1200)仍然嫌小的工程密图，做成突破版心的 full-bleed 之后观感才对，却被 `layout-overflow` 报警；而它给的两条建议(加横向滚动条 / 缩回版心)恰恰是 diagram-craft 要避免的两件事。
+- **Why**：`layout-overflow`(§1.32)只看几何关系(child 右边界 > parent 右边界)，不区分「内容撑破容器」和「有意的居中突破」。它豁免了 `position: absolute/fixed/sticky` 和会滚动/裁剪的父元素，而标准 full-bleed 用的是 `position:relative` 或负边距，**一个豁免都不沾**。合起来的效果是：容器档 1200 封顶 + full-bleed 被判警告 = 密图只剩「缩小」或「拆开」两条路，而有些图型拆开就丢信息(地址布局拆了没有线性关系、位域拆了看不出位宽比例)。
+- **Defense**：`visual-audit.mjs` 给 `layout-overflow` 加 full-bleed 豁免，四条同时满足才放行：① 是 `<figure>`/`<table>`/`<pre>` ② **在视口里居中**(判几何结果，不挑 CSS 写法 —— 作者至少有四种写法，按属性匹配总会漏掉没列进去的那种) ③ 不越出视口且文档不横滚 ④ 宽 ≤1680 且左右各留 ≥16px。另加 `figure-fullbleed-uncapped`(warn)：图宽 = 视口宽即判定这条 full-bleed 没写上限 —— 审计只跑 1440 和更窄的复查，看不到宽屏，但「没有上限」这个事实在任何视口都测得出来。
+- **Fix playbook**：见 `anthropic-design/references/layout-patterns.md` 的「突破版心怎么写才合法」。注意 `position:relative` 上的 `left:50%` 是相对**自身静态位置**偏移、不是相对父容器左边缘，父容器有内边距时算出来是偏心的(实测偏 40px、右越视口 12px、页面真的在横滚)。
+- **Applies to**：全 9 个设计 skill(检查在 cross-skill 层)。
+
+### 1.50 密图标签落在 9–10px：过了 9px 硬底线，却没人提醒
+
+- **Reader sees**：一张 20+ 标签的图渲染在 1000px 左右，标签实际只有 9 点几 px，读着吃力 —— 但 `diagram-tiny-text` 要 <9px 才报、`dense-diagram-cramped` 要渲染宽 <760px 才报，两条检查都不响。
+- **Why**：760 那条是按「塞不塞得下」标的，不是按「读不读得动」标的。760–1200 之间成了真空。
+- **Defense**：`visual-audit.mjs` 新增 **dense-diagram-labels-small**(warn)：`text ≥ 20` 且最小标签渲染 <9.5px 且渲染宽 ≥760(760 以下归 cramped)。阈值是量出来的不是拍的 —— 语料 11 张密图最小标签在 9.955–11.9px 之间(即 diagram-craft 规定的 11px 源 × 0.906 缩放)，**报在那之上等于拿自己的规范判自己违规**，所以设在其下、又高于 9px 硬底线。首跑在 index.html 抓到 2 张(9.12 / 9.24px，而该页自身常规是 9.68)，已提源字号修掉。
+- **Fix playbook**：提源 font-size 到 11，或给图升一档容器(必要时到 full-bleed，见 1.49)。**别靠缩 viewBox 硬塞**。
+  ⚠ **同一张 SVG 换一家 gallery 就要重算源字号** —— 各家 gallery 的图位渲染宽度差得很远，
+  而渲染字号 = 源字号 × 渲染宽 / viewBox 宽。2026-08-26 实测(1440 视口)：
+
+  | gallery | 图位渲染宽 | viewBox 1240 时的缩放 | 要达到 9.96px 的源字号 |
+  |---|---|---|---|
+  | `demos/anthropic-design/diagrams.html` | 1086px | 0.876 | ≥ 11.4 |
+  | `demos/apple-design/diagrams.html` | **946px** | 0.763 | **≥ 13.1** |
+  | `demos/glass-design/diagrams.html` | 1230px | 0.992 | ≥ 10.1 |
+
+  同一张 `interconnect-map` 在 anthropic 用 11.5 源字号渲染 10.07px 过关，原样搬进 apple
+  的 gallery 就掉到 **8.8px** 当场触这条检查，源字号提到 12.5 才回到 9.5 以上。
+  **apple 那一档最窄，跨 skill 移植图先按它算。**
+- **Applies to**：全 9 个设计 skill。
+
+### 1.51 `<b>` / `<code>` 写进 `<svg>`：图从那里断掉，后半截漏成正文
+
+- **Reader sees**：图只画出前半,缺的那部分变成图下方一段没有排版的散字。乍看像"内容写多了溢出",其实是 SVG 被截断。
+- **Why**：SVG 里没有 `<b>`/`<i>`/`<code>`/`<br>`/`<span>`。浏览器**不报错**,它在遇到非 SVG 元素时退出 foreign-content 解析,该 `<svg>` 内**其后所有内容**都按 HTML 处理,于是漏进页面文字流。`<text>` 内合法子元素只有 `<tspan>` / `<textPath>` / `<tref>` / `<a>`;强调要写 `<tspan font-weight="600">`。既有的 `<svg>` 标签配平检查(verify #5)看不见这类问题 —— 标签是配平的,坏的是**内容**。
+- **Defense**：`verify.py` 新增 **5b**(error)：逐个 `<svg>` 块扫 14 个 HTML-only 内联标签,报 `file:line` + 替换建议。`<foreignObject>` 内 HTML 合法,已按等长空白掩码豁免(掩码保留换行,行号不偏)。反例注入实测:改一处 `tspan`→`b` 立刻报在准确行;正例 0 error。存量 150 个 html 扫出 3 处(`<title><span>` 形式,SVG `<title>` 同样只能含纯文本)。
+- **Fix playbook**：`<b>x</b>` → `<tspan font-weight="600">x</tspan>`;换字体/字号/颜色同理都走 `tspan` 属性,别用 `<code>`。
+- **Applies to**：全 9 个设计 skill(任何手工 SVG 图)。
+
+### 1.52 图长到一屏以上 / 内容块掉在所有容器之外 —— 两道机械检查都看不见
+
+- **Reader sees**：某一张图明显比同页其他图大一圈,滚一屏才看完;它周围的正文也比别处更靠边、更长行。整页节奏在那一段断掉。
+- **Why**：两个独立成因,常常一起出现。
+  ① **图自己长太高**：行距/框高/留白按 60-90px 步距铺,内容其实 40-55px 就够;或两张图并成了一张。
+  ② **内容块脱离容器**(更隐蔽)：新内容插在 `<!-- ==== N ==== -->` 这类小节标记之前,却没检查那位置在不在上一节的 `</section>` 里,于是整块成了 `<body>` 直接子元素 —— **没有容器约束,svg 按视口宽渲染而不是 960/1200 列宽**,viewBox 被整体放大(1440/1200 = 放大 20%),字号跟着一起变大;正文同时丢掉 `max-width`,行长失控。
+  之前所有图相关的检查都只问"是不是太小看不清"(`dense-diagram-cramped` / `dense-diagram-labels-small` / `diagram-tiny-text` / `svg-letterbox` / `diagram-narrow`),没有一条问"是不是长过头";`verify.py` 查的是 placeholder / BEM / undefined class,不看 DOM 层级归属。所以这类页面能全部机械检查通过。
+- **Defense**：`visual-audit.mjs` 新增两条 warn。
+  - `diagram-oversized`：渲染高度 > **640px**,或(同页 ≥4 张图时)> 同页中位数 × 2.5。640 这个数取自参考库实测 —— 全部 50 个 canonical 页共 87 张图(带 ≥3 个 `<text>` 的 svg)在 1440 视口下是 `min 140 / p50 255 / p75 347 / p95 475 / **max 525**`,640 比参考库最高的那张还高 22%,越过它说明已经不在库的做法范围内。图确实需要更高时,在 `<figure>` 上加 `data-allow-tall` 豁免。
+  - `content-outside-container`：`<body>` 的直接子元素里出现 `h1-h6 / p / figure / table / ul / ol / pre / blockquote`,报出标签、前 48 字和渲染宽度(游离 figure 通常直接显示成视口宽,一眼可辨)。
+- **Fix playbook**：先查是不是掉出容器 —— 把内容移回它该在的 `</section>` 之前,图的 scale 会立刻从 1.20 回到 1.00,高度自动缩 20%;仍超标再压行距与框高,或拆成两张图。自查:
+  ```js
+  [...document.querySelectorAll('figure svg')].map(s => s.getBoundingClientRect().width / 1200)  // 应为 1.00
+  [...document.body.children].filter(e => !['SECTION','NAV','HEADER','FOOTER','SCRIPT','STYLE'].includes(e.tagName))  // 应为空
+  ```
+- **回归实测**：一个 14 图的长页,插入两块内容时掉出 `</section>` → 图渲染 881 / 1015px(同页中位数 340)。新规则报 `diagram-oversized`(1015px,3x median)+ 8 处 `content-outside-container`(figure 1440px / p 660px)。移回容器并压紧后为 452 / 546px,两条规则均不再触发。**参考库 50 页全扫 0 误报。**
+- **`data-allow-tall` 什么时候才该用(2026-08-28 补)**：它是最后一档,不是第一档。顺序是
+  **① 查掉没掉出容器 → ② 压行距框高 → ③ 换坐标轴重画 → ④ 才轮到 `data-allow-tall`**。
+  第 ③ 步最容易被跳过:一张竖着画的流程图,步数一多高度是线性涨的,**换成横向排布高度就变成常数**。
+  实测反例:anthropic 图示库那张 `mydev_probe()` 流程图,竖版 4 步渲染 **694px**;
+  横版(主路径左到右、错误车道压到下方、解绑梯反着排)渲染 **422px** —— 降了 39%,
+  而且因为车道箭头与主路径反向,反倒把"倒着解绑"这件事讲出来了。**重画之后再挂豁免就是死代码。**
+  真要用第 ④ 档,必须在 `<figure>` 旁写一行注释说明**这个高度装的是什么内容**
+  (例:"间隙里是带标签的报错分支,不是留白;拆图会毁掉错误车道汇进共享出口这一条结论"),
+  没有这行注释的 `data-allow-tall` 等于把检查关了。
+- **Applies to**：全 9 个设计 skill。
+
+### 1.53 `facts.mjs` 全绿 ≠ 计数扫干净 —— 措辞、数字形态、图内文字三处盲区
+
+- **Reader sees**：首页写着 "Seven aesthetics, one repo."，正下方就排着九张 demo 卡；lectern demo 的表格说明写"另有 13 个技能"（等于宣称上面列了 9 个），而它上面的名单只有 7 行。**而 `facts.mjs` 普通模式和 `--strict` 都是绿的。**
+- **Why**：facts.mjs 是**模式表**驱动的。它认的是带承载短语的说法 —— `N design skills` / `N design aesthetics` / `N 种声音` / `All N skills` / `全部 N 个 skill`。它不认：
+  ① `Seven aesthetics`（少了 design 这个词）；② `seven page-design aesthetics`（数字和 design 不相邻）；
+  ③ 写在 `<meta content="…nineteen skills…">` 里的（匹配前整个标签被剥掉）；
+  ④ SVG `<text>` 里的 `19 skills · 1 page`（同样是标签属性外的图内文字，但它在 tag-strip 后才可见，模式又不带承载短语）；
+  ⑤ "另有 N 个技能"与它旁边那张名单**是否同长**（跨行的一致性不在任何模式里）；
+  ⑥ 分项求和：`58/58` 的旁边列 `10×4 + 4 + 3 + 3 = 50`，两个数都在同一行也不会被比较。
+  ⑦ **数字形态**：这一条最贵。facts.mjs 的英文数词表只到 twenty，中文只到二十，所以 `Twenty-two`
+  这种词形它认不了 —— 中文侧还要更糟一层，`二十二` 会被**读成 12**（不是漏掉，是错答案，见 §1.54）；
+  而**纯数字**只在少数几个带承载短语的模式里才被看（`All 20 skills` 之类）。
+  裸数字 —— stat 卡上单独一行的 `8`、SVG 底栏的 `SKILLS 14 / AESTHETICS 5`、`Gate 2 渲染 check(26 类)`、
+  `all 44 page-types`、`56 bugs catalogued today` —— **一个都不报**。
+  ⑧ **图内文字与属性**：SVG `<text>`、`aria-label`、`data-label-en` / `data-label-zh`（双语图表把两种
+  语言的标签放在属性里，JS 再写进 DOM）。tag-strip 会把属性整段丢掉，`<text>` 里的数字又不带承载短语。
+  **模式窄是有意的** —— 放宽就会把"× 4 skills"、"3 known-bugs rows"这类非总数报成违规，教人跳过报告。代价就是上面这一类只能人来看。
+- **Defense**：计数类改动收工前，除了跑 `facts.mjs`，必须**扫全仓**（不是只扫改过的文件 —— 改一处措辞
+  会让隔壁那句变成自相矛盾），把**词形和数字形一起**扫，并且额外查两件模式做不到的事 ——
+  **数字与它旁边清单的长度是否一致**、**分项之和是否等于它自己写的总数**。
+  判定形态已落成仓内脚本，收工前跑它，非零即有假数：
+  ```bash
+  python3 skills/design-review/scripts/count-check.py          # 全仓判定，exit 0 = 干净
+  python3 skills/design-review/scripts/count-check.py --probe  # 只跑自检探针
+  ```
+  它把每个承载短语绑定到 `facts.mjs --json` 打出的磁盘真值（total / design / systems /
+  harness / canonical / known-bugs 及其派生），把"几道检查"绑定到 `design-review/SKILL.md`
+  「检查模型」一节的机器可读标记（全仓唯一定义），并核"数字旁边的清单"——gate 枚举缺项、
+  critic 被记成第 N 道、大写皮肤名册数目不够又没有 `+N` 标记——只打不相等的行；
+  排除照 facts.mjs 的规矩 ——
+  **序数**（`第五种` / `the fifth`）、**余数**（`其余 8 个` / `the other eight`）、
+  **每套自己的数**（`Ships 3 canonical page-types`）、**路线图渲染数**（`五种美学`）、
+  **记录性文件**（dated specs、本文件）—— 全部具名写在脚本的 `EXCLUSIONS` 表里，可 grep；
+  行级豁免复用 facts.mjs 的 `facts-ignore:` 注释。它**每次运行先给自己注入假数字探一次针**
+  （§7.10：没探针的检查等于没有），探针不过就 exit 2，根本不进入扫描。
+  下面这段是**最小人工兜底**（node 不可用，或想要一张「全部候选」的通读清单时用）。
+  它按"数字 + 计数词汇在同一窗口内"取候选，剥标签之后再把 `aria-label` / `content` /
+  `data-label-*` 的值和 SVG `<text>` 的正文补回来（这三处正是 ⑧ 的盲区）：
+  ```bash
+  python3 - $(git ls-files '*.html' '*.md') <<'EOF'
+  import re, sys
+  # stat 卡常把数字和它的标签分在两行(<text>44</text> / <text>page-types</text>),
+  # 所以窗口要跨到上下各一行 —— 只看单行的话这类一个都报不出来
+  # 词形（含 twenty-two 这类连字符复合词）与数字形一起收，低位到 two / 二 / 两 / 三；
+  # 前瞻/后顾只挡 ASCII 词字符 —— Python 的 \w 连 CJK 一起算，用它会把「九种」整类杀掉
+  NUM = (r'(?<![0-9A-Za-z_.-])(?<![一二两三四五六七八九十])('
+         r'two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|'
+         r'fifteen|sixteen|seventeen|eighteen|nineteen|'
+         r'twenty(?:-(?:one|two|three|four|five|six|seven|eight|nine))?|'
+         r'二十[一二两三四五六七八九]?|十[一二两三四五六七八九]?|[二两三四五六七八九]|'
+         r'\d{1,3})(?![0-9A-Za-z_.%-])')
+  # 计数词汇：命中它的数字才算候选，否则 padding:8px 之类会把报告淹掉
+  VOCAB = (r'skills?|design|voices?|aesthetics?|canonical|page-?types?|known-bugs?|bugs?|'
+           r'generators?|evaluators?|components?|gates?|checks?|templates?|'
+           r'技能|设计|声音|美学|范本|生成器|评审|组件|风格|条|个|种|套|张|道|项')
+  WIN = 30          # 数字与词汇之间允许的字符距离
+  def visible(s):   # ① 可见文字(含 SVG <text> 正文) ② 属性里的文字
+      return re.sub(r'<[^>]+>', ' ', s) + ' ' + ' '.join(
+          v for _, v in re.findall(
+              r'(aria-label|content|alt|title|data-label[\w-]*)="([^"]*)"', s))
+  for path in sys.argv[1:]:
+      vis = [visible(l) for l in open(path, encoding='utf-8', errors='replace')]
+      for i in range(len(vis)):
+          prev, cur = (vis[i-1] if i else ''), vis[i]
+          nxt = vis[i+1] if i+1 < len(vis) else ''
+          joined = f'{prev} | {cur} | {nxt}'
+          lo, hi = len(prev)+3, len(prev)+3+len(cur)   # 只报属于本行的数字
+          for m in re.finditer(NUM, joined, re.I):
+              if not (lo <= m.start() < hi):
+                  continue
+              near = joined[max(0, m.start()-WIN):m.end()+WIN]
+              if re.search(VOCAB, near, re.I):
+                  print(f'{path}:{i+1}  «{m.group(1)}»  {" ".join(near.split())[:110]}')
+  EOF
+  ```
+  兜底的产出是"要读的清单"，不是"违规清单" —— 逐条对
+  `node skills/design-review/scripts/facts.mjs --list` 的真值核；要"清零"这种可交付的结论，
+  跑上面的 `count-check.py`。这个兜底扫描器自己也栽过三个结构性的洞，上面的版本已修，
+  改它时别把洞引回来：
+  ① **每行只报第一个候选**（内层循环末尾一个 `break`）—— 39% 的候选（2296 → 3759 条）
+  根本报不出来，README:50 的真错（"8-component harness roadmap"）就藏在那里面；
+  ② **数词表从 four / 四 起**（照抄 facts.mjs）—— 写成 three / 三 的计数一个都配不上；
+  ③ **尾部前瞻写的是 `(?![\w.%-])`**，而 Python 的 `\w` 把 CJK 也算词字符，于是
+  `九种`、`四道`、`三道` 这类「中文数词 + 量词」**从来没匹配过** —— zh 词形防御名存实亡。
+  修法：前瞻/后顾只挡 ASCII 词字符（`[0-9A-Za-z_.%-]`），数词内部的误切
+  （`二十四` 切出 `十四`）由中文数词自己的 lookbehind 挡。
+- **How caught**：2026-08-24 把 primer 接进全部文档面那一轮，**同一类漏了三遍**，每一遍都是"上一遍的
+  防御正好照不到的形态"：① facts.mjs 全绿（含 `--strict`）之后，人工复评在 `index.html` 找到
+  "Seven aesthetics" 这类少了承载词的措辞；② 补了词形扫描器之后，它只认词形，于是
+  `Design voices 8`、`SKILLS 14 / AESTHETICS 5`、`all 44 page-types`、`26 类`、
+  `data-label-zh="77 条"` 这些**数字形**又整批漏过 —— 而且有几处正好落在 SVG `<text>` 和
+  `data-label-*` 属性里，是扫描器当时根本没看的地方。教训：**防御要按"这一类还能以什么形态出现"
+  扩，不是按"这次漏的那一条"补**。③ 第四轮复查发现**扫描器自身**还有三个结构洞（见 Defense
+  末尾的 ①–③：每行只报第一个候选、低位数词配不上、zh 数词 + 量词整类匹配不了），于是判定
+  形态落成 `scripts/count-check.py` 进仓，带自检探针 —— 贴在文档里的一次性代码没有回归可言，
+  只有进了仓、每次运行都自证能拦的检查才算防御。
+- **Applies to**：任何改计数的任务，以及任何新增 design skill 的任务。
+
+### 1.54 `facts.mjs` 把 `二十二` 读成 12 —— 不是"认不了"，是给了一个错答案
+
+- **Reader sees**：一句写对了的中文，被报成假数。`README_zh.md` 里写 `二十二个技能在一个仓库里。`，
+  磁盘上确实是 22 个 skill，`facts.mjs` 却打出:
+
+  ```
+  README_zh.md
+    :240   skills-total     says 12, disk says 22   «十二个技能在»
+  ```
+
+  引文里那个 `十二` 就是证据 —— 开头那个 `二` 被整个吞掉了。反过来同样成立:哪天真值是 12，
+  一句写着 `二十二` 的错话会当场绿灯过关。§1.53 ⑦ 只把这一类记成"twenty-two 这种词形它认不了"，
+  记轻了:认不了顶多漏一次，读错是把错的当成对的报出来。
+- **Why**：`facts.mjs:118-122` 的 `ZH_NUM` 只排到 `二十`，而 `:122` 的
+  `ZH_WORDS = Object.keys(ZH_NUM).sort((a, b) => b.length - a.length).join('|')`
+  **只按字符串长度排**，没有"同一位置上最长的数词优先"这回事。于是备选表长这样:
+  `十一|十二|…|十九|二十|四|五|…`。扫 `二十二个技能在` 时，位置 0 上 `二十` 是能配上的，
+  但它后面剩下 `二个技能在`，承载短语 `\s*个技能在` 配不上 → 回溯；到位置 1，`十二` 配上了，
+  后面正好接 `个技能在` → 整条模式命中，值取 12。英文侧同源:`EN_NUM` 到 twenty 为止，
+  `twenty-two` 这类连字符复合词一个都没有。
+- **Defense**：`count-check.py:85` 已经是对的形状，照它改就行 ——
+  `ZH_WORDS = "二十[一二两三四五六七八九]?|十[一二两三四五六七八九]?|[二两三四五六七八九]"`
+  （`二十X` 排在 `十X` 前面，`十X` 排在单字前面，位置 0 上就直接吃掉 `二十二`），
+  英文表补到 twenty-nine 的连字符形。
+  **这一轮没有改** `facts.mjs`:改数词表会让它开始看见一批以前看不见的说法，很可能当场冒出一串
+  新违规，而这一轮是合并前的定稿轮，只动文字。**移植 = 已排期的后续任务**，做的时候把
+  `count-check.py` 的 `EN_NUM` / `ZH_NUM` 两张表和这里的 lookbehind 一起搬，并按 §7.10 补探针
+  （最小探针:一句 `二十二个技能在` 必须读成 22，一句 `十二个技能在` 必须读成 12）。
+  在移植落地之前，中文计数**一律写阿拉伯数字**（`22 个技能`），别写 `二十二`。
+- **How caught**：2026-08-24 把 primer 接进全部文档面那一轮，写文档的人本想用 `二十二`，
+  被 facts.mjs 报成假数，于是改用数字绕过去了 —— 绕过的动作让 bug 只留在一份未跟踪的临时账里，
+  合并就没了。2026-08-25 终审复现并落进本文件。教训和 §1.53 是同一条的另一半:**一个报错先要问
+  "它读到的到底是什么"**，`says 12` 旁边那句引文 `«十二个技能在»` 一眼就能看出吞了字，
+  当成"这句话写错了"改掉，bug 就白白丢了。
+- **Applies to**：`facts.mjs` 的全部中英文数词模式；任何在中文文档里写数词的计数改动。
+
+
+### 1.55 图上编号了、字里一次没提 —— 编号退化成装饰,读者不知道该按什么顺序读
+
+- **Reader sees**：一张图上五个橙色圆圈写着 1–5,figcaption 把画面整体描述了一遍,
+  从头到尾没有提到任何一个编号。读者能看到有顺序,但不知道**这个顺序对应正文的哪几句** ——
+  编号唯一的作用(把图和字缝在一起)没有发生。
+- **Why**：编号徽章是一个**承诺**:"按这个顺序读"。承诺只在被兑现时才有意义,
+  而兑现发生在字里 —— 正文或 caption 说出"③ 处调用 `dma_map_single()`"那一刻。
+  画了不提,等于在图上写了一句没人接的话。`diagram-craft.md` §5 一直写着这条,但没有闸,
+  于是"顺手加几个编号让图看起来有流程感"这件事没有任何东西拦。
+- **Defense**：`visual-audit.mjs` 新增 **badge-not-referenced**(warn)。三道收紧,每一道都是实测逼出来的:
+  1. **徽章 = 圆圈里的短字形**(bbox 圆心落在某个 `<circle>` 半径内),不是所有短文字都算；
+  2. **必须是连续的 1..N 或 A..N**。第一版没这条,当场把手机 mock 里的**头像圆圈**(`A` / `W` / `G`)
+     和**未读数气泡**(孤零零一个 `3`)全报成了步骤徽章 —— 它们确实是圆圈里的单字形,
+     但不成序列。"是不是一个序列"才是"是不是编号"的判据；
+  3. **≥5 个**徽章才查。这是个关于信息量的判断,不是为了压噪声:3–4 步时**箭头本身已经把顺序说完了**,
+     编号只是复述,caption 不提它不损失任何东西;到 5 步以上,顺序就不再是看一眼能记住的,
+     必须靠字锚住至少一个。语料实测支持这条线 —— 阈值放到 3 会命中 26 处,
+     其中 **20 处是 3–4 步的 happy path**,箭头已经讲清了全部顺序。
+
+  放行条件刻意宽松:caption 里出现过**任一**徽章的裸 token(或对应的 ①–⑳ 圆圈字)就算引用过 ——
+  **宁可漏报,不可误报**。上线双跑:探针 `fixtures/bad-anthropic-badge-not-referenced.html` 必报;
+  全语料 99 页复扫,剩下的全是真阳(见 Fix playbook)。
+- **Fix playbook**：caption 里点名至少一个编号("跟着 ①→⑧ 读:字节先一层层下去…"),
+  或者把编号删掉 —— 如果这张图本来就没有顺序可言,删掉才是对的。
+- **Applies to**：全 9 个设计 skill。
+
+### 1.56 图族里某一张的 viewBox 变了 —— 底图一挪,"同一张地形"当场作废
+
+- **Reader sees**：连着几张图讲同一个东西,每张比上一张多一层。看着看着发现节点位置对不上了 ——
+  上一张里 CPU 在左上,这一张在偏下一点。读者只好**重新认一遍地形**,
+  而"地形不用重认"正是把它们做成一族的全部理由。
+- **Why**：图族的收益来自一个几何事实:底图坐标一模一样,读者的注意力就全部落在新增那一层上。
+  最常见的破坏方式不是有人故意挪 —— 是**新层放不下,于是把 viewBox 加高**,
+  底图跟着整体上移。加高的那一张单看完全正常,只有和前一张并排才看得出来,
+  而作者通常是一张一张画的。
+- **Defense**：`visual-audit.mjs` 新增 **series-viewbox-drift**(warn)：同一页内,
+  ① `<figure data-series="…">` 显式声明同族,或 ② 两张图的 `aria-label` **前 40 字符完全相同**
+  (这不会碰巧发生),满足其一且 viewBox 不一致就报,并把各自的 viewBox 打出来。
+  给显式路径的理由是"触发得了":光靠启发式,没人写 `data-series` 时它就是死代码；
+  给启发式路径的理由是"没写声明的存量页也要能抓"。
+  上线双跑:探针 `fixtures/bad-anthropic-series-viewbox-drift.html` 必报；全语料 99 页 0 假阳。
+- **Fix playbook**：**一开始就按最后一张的高度定 viewBox**,前几张下方留白 ——
+  留白比错位便宜,而且留白本身在告诉读者"下面还有东西要来"。
+  真不是一族(只是碰巧描述相近)就把 `data-series` 去掉、或把 aria-label 写得更分得开。
+- **Applies to**：全 9 个设计 skill。见 `diagram-craft.md` §16。
+
+
+### 1.57 中文量词卡在数字和英文词之间 —— `86 条 known-bugs` 从 facts 闸底下走过去了
+
+- **Reader sees**：`facts.mjs` 报"documentation clean",而 5 个展示页上写着 `84 条 known-bugs`,
+  磁盘上是 86。**闸绿着,数字是错的** —— 比闸报错更坏,因为没人再去查。
+- **Why**：`known-bugs` 这条检查只有两个 pattern:`\b(\d+)\s+known-bugs?\b` 和 `已收录 N 条`。
+  第一个要求数字和英文词之间**只有空白**;而中文写法是把量词塞在中间 ——
+  `86 条 known-bugs`,`条` 一挡,`\s+` 就配不上了。
+  讽刺的是同一个文件里 `skills-total` 早就有 `${z}\s*个\s*skill` 这种量词形态,
+  **每条检查都带了自己的量词式,只有 known-bugs 这条没带**。
+  漏的不是"一种没想到的说法",是"别的检查都做了而这条忘了做"的那一格。
+- **Defense**：给 `known-bugs` 检查补两个 pattern —— `N 条 known-bugs` 与镜像
+  `known-bugs N 条`。镜像那条要求 `条` 紧跟数字,所以章节引用(`known-bugs 1.55`、`§6`)配不上。
+  上线双探针:两种写法各注入一次错数,都在准确行号报出;还原后 `✓ facts clean`。
+- **Fix playbook**：**新增一条 facts 检查时,把它的中文量词式一起写上** ——
+  `个` / `条` / `件` / `张` / `种`,以及量词在前(`已收录 N 条`)和在中间(`N 条 X`)两种位置。
+  查漏的办法:`grep -rhoE '[0-9]+\s*[个条件张种]\s*<英文词>'` 扫一遍语料,
+  凡是出现过的写法都得有 pattern。
+- **Applies to**：`skills/design-review/scripts/facts.mjs`。同族:§1.53(措辞盲区)、§1.54(读错中文数词)。
+
+
+## 2. anthropic-design
+
+### 2.1 cream 在橙 CTA 上 = 2.96（fail AA）
+- **Reader sees**：橙底按钮上的 `"Try Claude"` 文字在暖奶白色下变得发灰。
+- **Why**：`color: var(--anth-bg)` (`#faf9f5`) 在 `.anth-button` 的橙 (`#d97757`) 背景上 = 2.96。
+- **Defense**：改为 `color: #ffffff; font-weight: 600;`（3.12，warn-level，品牌 intentional）;
+  visual-audit 的 contrast 检查会在 ratio < 3 时 fail。
+
+### 2.2 `.anth-nav a` 吃掉 `.anth-button` 的 white color → nav CTA 字色错（latent · §1.24 实例）
+- **Reader sees**：导航栏右边的 CTA 按钮（Download / Try Claude）渲染成 `#141413` 深字而不是白字，在橙底上 contrast ~5.9:1 通过 AA 但视觉错误（橙底按钮看起来像"反白文字 fail"）。
+- **Why**：CSS 特异性 `.anth-nav a` (0,2,1) > `.anth-button` (0,1,0)。anthropic 的橙底 + 深字 contrast 过 AA 让 visual-audit 不抓，是个 latent bug，2026-04-28 在 sweep 时发现。
+- **Defense**：`anthropic.css` 加 `.anth-nav a.anth-button { color: #ffffff }` + `:hover` 同（2026-04-28 ship）；`dos-and-donts.md` 加 Don't 行。
+- **Rule**：跨 skill 类 §1.24 的 anthropic 实例。
+
+---
+
+## 3. apple-design
+
+### 3.1 Hero 框图被压缩因 `.apple-container` (980px) 包 span-2 figures
+- **Reader sees**：SoC / multi-repo 两张大框图文字 < 9px，认不出。
+- **Why**：apple 的 base container 是 **窄的** (980px for reading)，hero 得用 `apple-container--hero` (1280px) 或 `--wide` (1280px)。历史上作者把 hero 还是套在默认 container 里。
+- **Defense**：
+  - `verify.py` 的 hero container 规则：base `apple-container` 被标为 narrow，`--hero`/`--wide` 才被接受;
+  - 模板里 hero 段已固定用 `.apple-container apple-container--hero`;
+  - visual-audit 的 diagram-narrow + diagram-tiny-text 兜底。
+
+### 3.2 apple 品牌蓝链接在浅灰段上 = 4.31(差 0.19 过 AA)
+- **Reader sees**:`.apple-link`(#0071E3)用在 `background:#f5f5f7` 的 subtle section 上,contrast 4.31,差一点点。
+- **Why**:apple.com 自己就是这么做的,品牌定位上是 intentional。
+- **Defense**:visual-audit.mjs 的 INTENTIONAL_EXCEPTIONS 列表增加一条(fg #0071E3 × bg #f5f5f7),`--ignore-intentional` 过滤。
+
+### 3.3 `.apple-nav a` 吃掉 `.apple-button` 的 white color + 加 0.8 透明 → nav CTA = 3.58:1 fail AA（§1.24 实例）
+- **Reader sees**：导航栏右边 `Download` 按钮渲染成 `rgb(29,29,31)` 深字 + 0.8 透明在 `rgb(0,113,227)` 蓝底上 = 3.58:1，fail AA。apple 的 blue 比 anthropic 橙更亮，所以这个 latent bug 在 apple 上 contrast 真的 fail，被 visual-audit 抓到。
+- **Why**：CSS 特异性 `.apple-nav a` (0,2,1) > `.apple-button` (0,1,0)，加上 nav 自带 `opacity: 0.8` 二次伤害（hover 才升 1）。
+- **How caught**：2026-04-28 apple/feature-deep canonical 跑 visual-audit `[warn] contrast 3.58:1 fg=rgb(29,29,31) bg=rgb(0,113,227) "Download" (a.apple-button)`。
+- **Defense**：`apple.css` 加 `.apple-nav a.apple-button { color: #ffffff; opacity: 1 }` + `:hover` 同（2026-04-28 ship）；`dos-and-donts.md` 加 Don't 行；既有 page-scoped 临时补丁应移除。
+- **Rule**：跨 skill 类 §1.24 的 apple 实例。
+
+---
+
+## 4. ember-design
+
+### 4.1 `.ember-nav a` 吃掉 `.ember-button` 的 color → "Get skills" 按钮不可见
+- **Reader sees**：导航里的橙色 CTA 文字变成暗棕，几乎和底色一样。
+- **Why**：CSS 里 `.ember-nav a { color: var(--ember-text) }` 选择器特异性 ≥ `.ember-button { color: #fff }`，前者后定义或同特异性下胜出。
+- **Defense**：在 `ember.css` 里追加 `.ember-nav a.ember-button { color: #ffffff }` 单独规则;
+  visual-audit 的 contrast audit 在 rendered 时兜底。
+- **Rule**：ember-design `dos-and-donts.md` 专条 —— "nav 里的 button 不加更高特异性 → `.ember-nav a { color: ... }` 会吃掉 `.ember-button` 的 color"。
+
+---
+
+## 5. sage-design
+
+### 5.1 `#97B077` sage 绿在白底上 = 2.4（fail AA）
+- **Reader sees**：白底上的 sage 绿按钮/链接文字太淡，看不清。
+- **Why**：sage 是装饰性颜色，不是 primary ink。当 CTA 底色 = 白 / 文字 = sage 绿时 contrast = 2.4。
+- **Defense**：
+  - 规则：primary CTA 用 `--sage-ink` (#393C54, 对 cream 底 11.3 ✓) 作为文字色或按钮底色；
+  - sage 绿只做 accent / illustration / 大面积填充 + 白字（`#ffffff` on `#97B077` = 4.1，warn 但可用）;
+  - 在 `design-tokens.md` 文档化。
+
+---
+
+---
+
+## 6. glass-design
+
+### 6.1 SVG 墨色写死白 fill → light 主题下图示隐形
+- **Reader sees**:dark 主题完美的图,切到 light 主题后只剩几条 cyan 线,文字和节点全部消失。
+- **Why**:glass 是双主题 skill,`fill="#F4F7FF"` 这类写死的"白墨"在浅底上不可见;SVG 的 presentation attribute 不会跟 `html[data-theme]` 切换。
+- **Defense**:glass.css 提供 `.glass-svg-ink/-2/-3 / .glass-svg-node(-strong) / .glass-svg-line / .glass-svg-grid` 主题类(CSS `fill`/`stroke` 属性能用 `var()`);diagram-craft.md 定为铁律;渲染 / 可达性 / 截图三道(gate 2-4)对 glass 自动跑 dark + light 两遍,光靠 light 一遍的 contrast / svg-text-on-same-colour 检查即可抓到。2026-06-11 smoke 页实测命中后机器化。
+
+### 6.2 滚动浮现初始 `opacity:0` × fullPage 截图 = 下半页空白
+- **Reader sees**:全页截图(或无 JS 读者)看到首屏以下大片空白;visual-audit 的 contrast / text-desert 检查在 opacity:0 元素上失真。
+- **Why**:Playwright fullPage 截图走 captureBeyondViewport,**不滚动页面**,IntersectionObserver 永不触发;裸写 `[data-reveal]{opacity:0}` 的初始态就是截图里的终态。
+- **Defense**:三层冻结契约(motion.md §0)——初始隐藏门控在 `html.js-enabled:not([data-motion="off"])` 后面 + glass.js 读 `prefers-reduced-motion` 设 `data-motion="off"` + harness 两个 Playwright 脚本 `newContext({reducedMotion:'reduce'})`。机器检查:visual-audit `glass-reveal-stuck`(error)在 reduced-motion 上下文里抓任何 opacity<0.99 的 `[data-reveal]`。
+
+### 6.3 半透明玻璃面板被 contrast 检查误读为白底
+- **Reader sees**:visual-audit 对暗底玻璃卡上的白字报 contrast 1.0 的假 error,检查被堵死。
+- **Why**:旧 `effectiveBg` 把第一个 alpha>0.05 的祖先背景**原样**当作底色 —— `rgba(255,255,255,0.06)` 玻璃板被当成纯白。
+- **Defense**:2026-06-11 改为逐层 alpha 合成(半透明层依次混到首个不透明层或白底)。对存量 4 skill 回归 diff = 0 新增 finding。
+
+### 6.4 aurora 色直接做文字色 → 单主题不可读(cyan 挂 light,indigo 挂 dark)
+- **Reader sees**:light 模式下 accent 文字几乎看不见。
+- **Why**:cyan 亮度太高,白底上对比度 1.6;它只配做**填充**(按钮/hairline),做文字必须换深青。
+- **Defense**:token 分工 —— 填充色主题恒定可写死,**文字色一律走 `*-ink` token**:cyan 文字 `.glass-svg-accent-ink`(light 切 `#0E7490`),indigo 文字 `.glass-svg-ref-ink`(dark 调亮 `#818CF8`,literal `#4F46E5` 在暗面板上只有 2.7:1 —— dashboard/data-report canonical critic 实抓)。按钮文字锁 `--glass-button-ink` 深字(白字在 cyan 上 1.9)。机器检查:visual-audit `glass-cyan-svg-text`(light 跑抓 cyan 文字)+ `glass-aurora-text`(dark 跑抓 indigo/violet/pink 文字),均 error。
+
+### 6.5 aurora 光晕层挡点击
+- **Reader sees**:按钮看得见点不动。
+- **Why**:光晕层 `position:fixed; inset:0`,忘记 `pointer-events:none` 时整页点击都打在它身上。
+- **Defense**:`.glass-aurora` 在 glass.css 自带 `pointer-events:none`;visual-audit `glass-cta-obstructed`(error)对每个视口内 `.glass-button` 中心点做 `elementFromPoint` 命中检查,任何装饰层(自加的视差层/sheen 层)挡住 CTA 都会被抓。
+
+### 6.6 axe 亮色欠账:glass light 主题 84 处 color-contrast 阻断,晋升时的清账没量到 —— **2026-08-27 已还清**
+
+- **Reader sees**:文档曾写 color-contrast「存量清零后才晋升,这道检查不会因历史欠账而失败」;
+  但照文档跑 `bin/design-review --skill=glass <page>`(自动双主题),gate 3 在**七个**挂
+  `glass.css` 的页面上**今天就 fail**。
+- **Why**:2026-08-14 那次 74 页清账,**每页只量了一个主题**(默认主题),glass 的 light
+  主题从来没有被量过。light 下弱化文字色(如 `#747882`)压在 `#f2f5fa` 浅底上大面积
+  4.04:1(线是 4.5);另有 `.glass-lead code` 的青字 `#0e7490` 压在 `#e7eaef` 上 4.44:1。
+  受影响面按 `grep -rl glass.css *.html` 取全,不是只取 canonical。复现(2026-08-25 逐页实测):
+  ```bash
+  node skills/design-review/scripts/axe-audit.mjs --strict --theme=light <page>
+  # skills/glass-design/references/canonical/landing.html         22 阻断
+  # skills/glass-design/references/canonical/data-report.html       6
+  # skills/glass-design/references/canonical/dashboard.html         4
+  # skills/glass-design/references/canonical/diagram-gallery.html   2
+  # demos/glass-design/index.html                                  22
+  # demos/glass-design/diagrams.html                                2
+  # docs/HARNESS-ROADMAP.glass.html                                26
+  # 共 84 处,全部同一条 color-contrast;同七页 dark 主题各 0 处。
+  ```
+  第一次记这条时按五页记了 56 处,漏掉 `demos/glass-design/diagrams.html`(2)和
+  `docs/HARNESS-ROADMAP.glass.html`(26)—— 少记 28 处。取样按「canonical + 旗舰 demo」
+  取,而不是按「谁挂了这套 CSS」取,就会漏掉文档目录里的皮肤版页面。
+- **✅ 已还清(2026-08-27)**:根因在 **token 层,不在页面层** —— 84 处里绝大多数是同一个
+  `--glass-ink-3`。light 档它是 `rgba(13,18,32,0.55)`,压在 `--glass-bg #F2F5FA` 上混出
+  `#747882` = **4.04:1**;改成 `0.60` → `#696D77` = **4.74:1**。
+  另一处是 `--glass-accent-ink #0E7490` 在 `<code>` 底(`#E7EAEF`)上 **4.44:1**,
+  改成 `#0C6478` → code 上 5.60、页底上 6.18。**两个 token,清掉全部 84 处。**
+  取样按本条自己的教训走:`grep -rl glass.css --include=*.html` 取全 **7 页**,
+  每页 light + dark 各跑一次 = 14 次,**全部 `axe-audit: OK`**。
+  panel 比页底更亮,所以裸 `--glass-bg` 就是最坏情况,不必逐组件量。
+  上面 ①/①b 列的**六处但书已全部收掉**(`bin/design-review` 头注 + gate 3 注释、
+  `design-review/SKILL.md`、`axe-audit.mjs` 的 PROMOTED 注释、`cross-skill-rules.md`、
+  `README.md` / `README_zh.md`)。
+- **留下来的教训(欠账没了,这条不会没)**:**晋升的可信范围 = 取样的范围,而主题是取样的一维。**
+  一次"清零"如果每页只渲染了默认主题,它证明的就只是默认主题。
+  取样面也要按"谁挂了这套 CSS"取,不是按"哪些是 canonical"取 —— 第一次记本条就是这么漏掉 28 处的。
+- **当时的处置(存档)**:欠账未还期间:
+  ① 文档不再写「存量清零 / 不会因欠账失败」—— 四处已改口(`bin/design-review` 头注与
+  gate 3 注释、`design-review/SKILL.md` 检查模型与 What-ships 表、`README.md` /
+  `README_zh.md` 的 design-review 行),统一说法:晋升按 skill 实测,但当时每页只量一个
+  主题,glass light 带着已知 contrast 欠账,在 glass 页上 gate 3 会因存量 fail;
+  ①b 2026-08-25 又有两处加了同样的但书,还账时一并收掉:`axe-audit.mjs` 的 PROMOTED
+  注释(那里原本写「存量清零,这条规则不会因历史欠账失败」)、`cross-skill-rules.md`
+  §「颜色与对比」末尾的机器检查一行;
+  ② 还账后回来删掉本条的「未还」并把上述四处的但书收掉;
+  ③ 教训同 §1.53:清账证据要按「这类页面还能以什么形态渲染」取样(主题 × 视口),
+  不是按默认渲染量一遍;取样面也要按「谁挂了这套 CSS」取,不是按「哪些是 canonical」取。
+- **Applies to**:glass-design(双主题);未来任何双主题 skill 的清账都要每主题各量一遍。
+  atelier 也是双主题(light 为 canonical),2026-08-25 按 dark 逐页量过,七个页面全 0 处 ——
+  这条欠账目前只在 glass 上。
+
+## 7. atelier-design
+
+> 全部来自 2026-08-14 建 skill 当天的实抓。§7.1–§7.3 是**检查自己的 bug**,不是页面的 bug。
+
+### 7.1 `defined_classes` 丢掉 BEM 元素名 → 每个 `__` 类都误报 undefined
+- **Reader sees**:verify.py 对一个 CSS 里明明定义了的类报 `undefined class 'atl-brand__name'`,一页 31 条假 error,这道检查完全不可用。
+- **Why**:`verify.py` 的 CSS 侧提取用 `\.(prefix)[a-z0-9-]+`,**字符类里没有下划线**,`.atl-brand__name` 只被学成 `atl-brand`;而 HTML 侧 `used_classes` 按空白切分,拿到的是完整 token。两边不对齐。
+- **Defense**:字符类补 `_`(`[a-z0-9_-]+`)。这条 bug 在 `anthropic.css` 的 `.anth-dialog__actions` 上**潜伏已久**,只是还没有页面用过那个类;atelier 一次用 65 个 BEM 元素类,当场引爆。回归:51 个存量 canonical 修后仍全过。
+
+### 7.2 SEO description 正则被属性里的撇号截断
+- **Reader sees**:180 字的 meta description 被报成 "4 chars",warn 完全是假的。
+- **Why**:捕获组写的是 `content=["\']([^"\']*)["\']` —— 排除了**两种**引号。双引号属性里出现 `Loka's` 时,捕获在撇号处停下,只拿到 `Loka`。任何带英文所有格的 description 都会中。
+- **Defense**:改成反向引用 `content=(["\'])(.*?)\1` + `re.DOTALL`,取 group(2)。
+
+### 7.3 分隔线格子被 hollow-card 检查当成卡片
+- **Reader sees**:每个分段 KPI 条报 3 条 hollow-card warn,报告里全是噪音 —— 这正是"教人跳过报告"的假阳形状。
+- **Why**:`hasBorder` 只要四条边**任意一条**有宽度就算卡片。KPI 行是一个圆角容器内部用 `border-right` 分隔的格子,单边分隔线被当成了卡片轮廓。已有的"≥36px 大数字算数字条"豁免够不着 —— KPI 数字只有 25px,因为一行并排四个。
+- **Defense**:`visual-audit.mjs` 新增 `dividerOnly` 判定 —— 只在行内轴(Left/Right)有边框、且无投影无独立背景时不算卡片。真卡片仍有完整轮廓 / 投影 / 独立底色,照抓不误。
+
+### 7.4 `<span>` 当块用:inline 盒子静默吞掉 width / height / 竖直 margin
+- **Reader sees**:`16:45YIA` 粘成一行;9px 的时间轴圆点渲染成一根 2px 竖条;KPI 标签和数字挤在同一行读成一句话。**三道机械检查全绿**。
+- **Why**:`.atl-rank__name` / `.atl-timeline__dot` / `.atl-result__time` 这些槽位在 canonical 里写成 `<span>`(flex 行里塞 `<div>` 要多一层包装)。inline 盒子对 `width` / `height` / 上下 `margin` **不报错、直接忽略**。
+- **Defense**:atelier.css 里所有块行为的 BEM 元素显式 `display:block`,Section N 上方写了整段说明为什么删一个就坏。**没有机器检查** —— 这条靠看截图,记在 `atelier-design/references/dos-and-donts.md` §11。
+
+### 7.5 暗区域不带 `.atl-inksurface` → `.atl-muted` 在深色上几乎不可见
+- **Reader sees**:登录页暗面板底部那段说明字几乎看不见。**渲染对比度检查没报。**
+- **Why**:手写 `background: var(--atl-ink-card-bg)` 只改了底色,`.atl-muted` 仍解析成**亮色主题的** `--atl-ink-3`(暖炭 46% alpha),压在 `#211C1A` 上对比度极低。
+- **Defense**:atelier.css 提供 `.atl-inksurface`,带齐颜色契约(标题 / muted / 头像描边)。任何不是 `.atl-card--ink` 的暗区域必须带它。
+
+### 7.6 渐变承载文字:白字在珊瑚端只有 2.5:1
+- **Reader sees**:visual-audit 报 `.atl-btn--accent` contrast 1.11:1(取样把渐变读成透明,落到页面底色)。
+- **Why**:取样值虽然不准,**结论是对的** —— 白字压在 `#F5854F` 实测 2.5:1,连大字号 AA(3.0)都不过;压在 `#DD4F92` 是 3.8:1,只够大字号。按钮是小字。
+- **Defense**:`.atl-btn--accent` 改用实心 `--atl-accent-ink`(`#C13877`,白字 5.1:1);暗色主题下 `--atl-accent-ink` 变亮,按钮**文字**翻成 `--atl-ink-inv`。规矩写进 `dos-and-donts.md` §4:**渐变只出现在圆球 / 柱 / 进度条 / 品牌标记,永不承载文字**。
+
+### 7.7 半透明面积填充盖住先绘制的 `<text>`
+- **Reader sees**:折线图上的 "median 71" 标签被 30% alpha 的渐变面积整个盖住(重叠 100%)。
+- **Why**:SVG 按文档顺序绘制。标签写在面积 `<path>` 之前 = 后画的填充压在上面。
+- **Defense**:`svg-shape-over-text` 检查抓到了。规矩:**所有 `<text>` 放在 SVG 的最后绘制**,见 `atelier-design/references/diagram-craft.md` §5。
+
+
+### 7.8 alpha 墨色在 AA 上不合格,而我们的对比度检查看不见
+- **Reader sees**:静音说明文字浅到几乎读不出;三道机械检查全绿。
+- **Why**:`rgba(44,39,35,0.46)` 合成到卡面是 `#9d9996`,对比度 **2.74:1**(AA 要 4.5)。
+  两层原因:① alpha 墨色**作者算不出它落地是什么颜色** —— 同一个 token 压在 0.80 的卡、
+  0.94 的表格、壁纸上是三个实际值;② `visual-audit` 的取样**不做图层合成**,
+  看到的是 token 的字面值不是渲染值。axe-core 一次在一页上抓出 21 个元素。
+- **Defense**:atelier 墨色改成**实心值**,每个按"它能落到的最难的底"取
+  (页面级文字按壁纸、chip 文字按 12% 淡底)。机器检查:`axe-audit.mjs` 的
+  `color-contrast`(warn 级;全仓 1013 个元素待清,见 §7.11)。
+
+### 7.9 `<a>` 包一个 `aria-hidden` 的 SVG = 这个链接没有可访问名
+- **Reader sees**:屏幕阅读器读到"链接",读不出去哪。视觉上完全正常。
+- **Why**:`<a href="..."><svg aria-hidden="true">…</svg></a>` —— 唯一的内容被 aria 隐藏了,
+  链接就没有任何可计算的名字。首页 8 个 demo 预览卡全中(7 个是历史遗留,第 8 个是新加
+  atelier 时**照抄了同一个坏模式**)。
+- **Defense**:这类链接必须自带 `aria-label`。机器检查:`axe-audit.mjs` 的 `link-name`,
+  **已晋升为阻塞级** —— 全仓修干净之后才晋升的,所以这道检查不会因为历史欠账而误伤。
+
+### 7.10 阈值不实测就是死代码:像素检查的第一版什么都拦不住
+- **Reader sees**:像素回归检查报 OK,而页面颜色确实变了。
+- **Why**:`pixelmatch` 默认 threshold 0.1 附近对**调色板级别的改动完全不敏感**。
+  实测:把 `--atl-ink-2` 挪 14 个色阶,threshold 0.30 / 0.12 / 0.06 全都是 **0 px**;
+  0.03 才看得见(1298 px = 0.090%)。而且第一版的 max-diff 预算 0.2% 比这个改动还大,
+  就算看见了也会放过。
+- **Defense**:threshold 0.03 + max-diff 0.05%,**两个数都是实测校准的**,校准过程写在
+  `pixel-gate.mjs` 的 `parseArgs` 注释里。预算从首版 0.02% 放宽到 0.05% 也有实测依据:
+  blur 48 玻璃切过陡渐变的页面(atelier signin 暗面板边缘)同机复跑有 0.042% 的
+  渲染噪声而页面零改动;实测真实改动下界 0.09%,0.05% 落在两者之间。
+  收下之后用同一个探针验证:改动时退出码 1、还原后退出码 0。
+  **新检查必须有一次"证明它能拦住东西"的探针,否则不算收下;放宽预算同样要复跑探针。**
+
+### 7.11 全仓可达性欠账:1023 → 0(2026-08-14 当天清零,`color-contrast` 已晋升阻塞)
+- **原始现状**:74 页 1023 个违规元素,1013 个是同一条 `color-contrast`。
+  分布:sage 394 · anthropic 177 · lectern 151 · ember 116 · site 93 · apple 38 · eclat 11
+  · gdc 6 · atelier 0(建 skill 当天在源头改掉)。
+- **清账**:一个 skill 一个 commit,五笔清完(sage `f76be04` · anthropic+site `b614e67` ·
+  lectern+ember `767a873` · apple+eclat 本笔)。清零后 `color-contrast` **晋升为阻塞级**。
+- **四个反复出现的失败模式(修任何 skill 前先对照)**:
+  1. **alpha / opacity 叠加**:`rgba` 墨色或在 muted token 上再叠 `opacity:0.4-0.65`,
+     合成后 1.85-3.04。修:去掉叠加,token 本身就是降调;整卡淡化改成只淡预览图。
+     出现在 sage / anthropic / ember / apple 的 pricing `.muted`、`.cmp-cell--off`、
+     docs-home coming-soon 卡 —— **四家共用的复制粘贴模板,一处错处处错**。
+  2. **品牌色当文字**:sage 绿 2.26 / anthropic 橙 2.66 / ember 金 2.18 / apple 蓝 4.31。
+     修:新建 `-ink` 深变体给 `color:` 用,**填充保持原值**护品牌检查;按钮底可在
+     品牌检查 TOL 55 内加深(anthropic `--anth-cta` #B85C3D,dist 50)。
+  3. **判断色按白底取值**:实际最难的底是**自己的 12% tint chip**。
+     lectern teal 3.97 / amber 2.70 于各自 chip。修:按 chip 底重取。
+  4. **明暗用反**:暗底(pre / 引用带 / footer)上用了亮色主题的深 muted(1.76-3.19),
+     或全局替换把暗底上的亮 token 一起换深(sage `.cmd` / ember `.cmd` / apple `.com` 三连踩)。
+     修:暗底用亮 token —— 亮色在暗底恰是过 AA 的那一个。**批量替换后必须重跑 axe**,
+     这个错自己不会浮出来。
+
+### 7.12 壁纸太淡 → 玻璃无物可磨,五道机械检查全绿但不"玻璃"
+- **Reader sees**:用户对照 Dribbble 参考板:"你的玻璃透明效果不如图里的好。"
+  而 verify / visual-audit / axe / screenshot / pixel 全绿。
+- **Why**:磨砂玻璃的可见性来自它背后的颜色变化。第一版 atelier 壁纸三停全挤在
+  S≤19 / V96+(跨度 1 个点),`backdrop-filter` 在数学上照跑,视觉上无事发生 ——
+  透过玻璃采样是 `#FFF5EC`(白),而参考板玻璃后是 `#E3C7B1`(浓桃)。
+  **玻璃感 = 壁纸饱和度 × 明暗跨度 × 壳透明度**,三项弱一项就塌。
+- **Defense**:没有机器检查(纯品位维度),但有**可执行的发现方法**:对参考板
+  `PIL` 采样壁纸四角 + 玻璃后区域,比 HSV 的 S 与 V 跨度(参考域 S27-40 ·
+  V54→V93 · 玻璃后仍见浓色)。修:壁纸加浓加跨度(atelier 现四停含陶土暗端,
+  中心压画布外)+ 壳 alpha 0.52→0.42 + blur 48。连锁:浓底压掉 ink-3 —— axe
+  当场拦下 12 处,ink-3 降级为 card-only(§7.8 的延伸),裸壁纸玫红加
+  `--atl-accent-ink-deep`(axe 对渐变底 incomplete,人工红线)。
+
+## 8. primer-design
+
+> 全部来自 2026-08-24 建 skill 那几天的实抓。§8.3 / §8.4 是**审查自己的盲区** ——
+> 页面确实有问题，而机械检查按现有门槛整块跳过了它，只有人眼复评抓到。
+
+### 8.1 `<svg>` 根上的 3.4px 描边被 `<text>` 继承 → 标签渲染成墨团
+- **Reader sees**：厚描边插画里的文字标签糊成一团黑，越小的字越糊，14px 的标签认不出是哪几个字。
+- **Why**：primer 的画法把 `stroke-width: 3.4px` 设在 `<svg>` 根上，让整张图共享一支笔。
+  但 SVG 的 `stroke` 是**继承属性**，`<text>` 一起继承了，每个字被 3.4px 的轮廓线勒住。
+  文字的重量来自 `font-weight`，从来不该来自描边。
+- **Defense**：`primer.css` Section J 成对写死
+  `.primer-figure svg text, .primer-analogy-fig svg text { stroke: none; }` ——
+  正文插画和比喻卡小图是两个容器类，只写一条会漏掉另一条。新增插画容器类时必须同时进这一对选择器。
+- **Applies to**：任何把 `stroke` 设在 `<svg>` 根上的 skill；primer 描边最粗，所以最先炸。
+
+### 8.2 描边阶梯漏了两段：hero 图 769–981px 塌到 2.26px，960 单位的全宽图在三处塌到 2.85px
+- **Reader sees**：小笔记本 / 竖屏 iPad 上，hero 插画的线细得像铅笔稿，绘本的手感没了；
+  1440 和 1024 两个视口截图都正常。技术页那几张 960 单位的图在小平板上同样偏细，
+  和同一页 900 单位的图并排看就轻一档。
+- **Why**：两处漏洞，病根是同一个 —— 阶梯的每一格都焊死了"900 单位 + 某个断点"这两个前提，
+  换了 viewBox 宽度或者换了容器档，前提就不成立，而没有任何机械检查会报。
+  ① **hero**：hero 网格在 **769** 就变回两栏，而补偿那一块 `max-width: 768` 到 768 就停了，
+  500 单位的 viewBox 落进一条 332–441px 的窄栏里没人管。
+  右栏宽 = (视口 − 120) × 1.05/2.05。实测 **769 时 2.26px、800 时 2.37px、860 时 2.58px、
+  900 时 2.72px**，一直到 **981.4** 才回到 3.0px。
+  ② **960 单位**：`tech-figures.md` §5 给六类技术图里的四类规定了 960 单位的 viewBox，
+  而阶梯的值是按 `值 × 内容宽 / 900` 算的。960 比 900 宽 6.7%，同一档渲染出来就细 6.7%：
+  **481 时 2.94px、661 时 2.85px、690 时 2.98px、901 时 2.96px**（900 单位的图在同样这几个
+  视口是 3.14 / 3.04 / 3.18 / 3.16px，全在线上）——所以技术页之前没有一页能让这条露面。
+  两处都躲开了渲染检查的 1440 / 1024 两个采样点。
+- **Defense**（2026-08-26 重写。**上一版这一栏写的"Section L 的补偿分级已按两端重算"是不实的**：
+  重算过的只有 wide 那三档，hero 只补了 ≤480 一级，960 这个宽度从头到尾没被算过。
+  报"已修"比不修更贵 —— 后来的人会拿它当结论，不会再去量）：
+  - Section L 的每一级都乘 `--primer-vbw / 档位设计宽度`（全宽图 900、hero 500）。
+    这一乘把 viewBox 从公式里约掉：渲染像素 = 基值 × 内容宽 / 设计宽度，和 viewBox 多宽无关。
+    960 档由 `svg[viewBox^="0 0 960 "]` 自己认出来，页面不用写；别的宽度在 `<figure>` 上
+    写一次 `style="--primer-vbw: 936"`。
+  - wide 顶档从 ≤900 提到 **≤911**：960 单位靠自然线宽只撑到 3.4 × (V−64)/960 ≥ 3 ⟹ V ≥ 911.1。
+  - hero 新增 **769–981px** 一级，4.6 / 2.45，两端实测 3.06 / 4.06px；
+    限定在 `.primer-hero-inner` 之内，因为窄栏才是病因（画廊页把 hero 图重印到网格外面，
+    那里 `max-width: 520px` 兜着渲染宽，不限定的话会被抬到 4.78px，越过 4.4 的上线）。
+  - 复验：11 个 primer 页面 × 视口 340→1600 逐像素扫，**没有一张图跌破 3px**。
+    唯一在上线之外的是 hero 图 481–768 单栏那段的 4.95px —— 偏厚不偏细，历史遗留，另记。
+- **规则(这条才是能复用的部分)**：**改了 viewBox 尺寸或者容器档位之后，
+  必须按 `值 × 内容宽 / 设计宽度` 把每一个受影响档位的两端都重算一遍**，
+  不能只看两个审查视口的截图，也不能因为"另一个宽度是好的"就推断这个宽度也好。
+
+### 8.3 「插画占该节一半」和「图高 ≤640px」在 ~533 viewBox 单位以上互相顶死；≤2 个 `<text>` 的图整块绕过上限
+- **Reader sees**：一张 672px 高的 hero 插画全绿上线 —— 既满足"插画占该节 ≥ 一半"，
+  又没被 `diagram-oversized` 拦下，但它已经高过一屏，读者要滚动才能看完"一张图"。
+- **Why**：两条规则各自都对，冲突在交集。1080 容器把 900 单位宽的 viewBox 放大 1.2 倍，
+  所以 640px 的图高上限换算过去只有 **533 viewBox 单位**；而"插画层高 ÷ 该节高 ≥ 0.5"
+  （`dos-and-donts.md`）在正文两句以上时就要求更高的图。更要紧的是
+  `diagram-oversized` 只量带 **≥3 个 `<text>`** 的 `figure svg`，
+  而 primer 的标签预算只有别家一半，一张只标 1–2 处的图**根本不被测量**。
+- **Defense**：设计侧硬规则 —— primer 的 hero 插画 viewBox 高按 **≤533 单位**画
+  （1080 档 ×1.2 = 640px 上限），确实要更高就在 `figure` 上写 `data-allow-tall` 明说意图。
+  机械检查待补：`diagram-oversized` 的 ≥3 `<text>` 门槛对 primer 太松，应放宽到 ≥1。
+
+### 8.4 根画廊的展示 mock 挂 `aria-hidden` → 所有插画检查整块跳过
+- **Reader sees**：根 `index.html` 的 primer 预览图里标签只有 6.7px，
+  肉眼一看就是糊的 —— 而 verify / visual-audit / axe 全绿。人工复评才抓到。
+- **Why**：装饰性展示 mock 按可访问性惯例挂 `aria-hidden="true"`
+  （它是隔壁真页面的缩略图，读屏不该念第二遍）。而 visual-audit 的每一个插画检查
+  第一行都是 `if (svg.getAttribute('aria-hidden') === 'true') return;`
+  —— SVG 文字下限、letterbox、图高上限全在内。于是这类 mock 是检查的真空区，
+  而它恰恰是首页最显眼的那张图。
+- **Defense**：mock 里的字号按**最终渲染宽度**反算（预览容器宽 ÷ viewBox 宽 × font-size ≥ 9px），
+  别照抄真页面的 font-size；`aria-hidden` 的图一律进人眼复评清单 —— 全绿在这里不代表看过。
+
+## 新 bug 类的处置流程（每次必做）
+
+1. design-critic 或人发现一个本表之外的问题。
+2. 决定：**这是偶发还是一个 bug 类?**
+   - 偶发 → 只修这一页。
+   - bug 类 → 走步骤 3。
+3. 追加一行到本文件，写清 Reader sees / Why / Defense。
+4. 如果能在 render 时检测 → 加一个 check 到 `scripts/visual-audit.mjs`。
+5. 如果能在静态扫时检测 → 加一个 check 到 `scripts/verify.py`。
+6. 如果是 style-specific → 也更新对应 skill 的 `references/dos-and-donts.md`。
+7. 至少给一个 fixture demo 或测试证据说明"改完以后这条 bug 跑脚本能被捉到"。
+
+### 1.58 `<g fill="none">` 里的连线被当成实心块 —— `svg-shape-over-text` 拿 bbox 判遮挡
+
+- **Reader sees**：一张干净的图,`visual-audit` 报出十几条
+  `svg-shape-over-text: <path fill=""> drawn after & on top of text "Core 6"`。
+  去图上看,那条 path 是一根 L 形连线,从标签**旁边**绕过去,一个像素都没压到字。
+- **Why**：两处叠加。① 检查读的是 `s.getAttribute('fill')`,
+  而连线的 `fill="none"` 写在父 `<g>` 上,子元素自己没有这个属性 —— 于是被当成"有填充"。
+  ② 判遮挡用的是 `getBoundingClientRect()`,**L 形 path 的包围盒是整个 L 的外接矩形**,
+  中间那一大片空白也算进去了。两件事凑一起,凡是"连线绕过标签"的画法都会被报。
+  2026-08-28 实测:anthropic 图示库 13 条告警里 **12 条是这个**,真阳只有 1 条(且是另一类)。
+- **Defense**：改用 `getComputedStyle(s).fill` —— 它会把父级和 CSS 的继承一起解出来,
+  `fill:none` 一律跳过;顺带跳过 alpha < 0.05 的 `rgba()`。
+  探针 `fixtures/bad-anthropic-shape-over-text.html` **一张图里放两个案例**:
+  一个实心橙圆压在标签上(必须报),一个继承 `fill:none` 的 L 形连线包围盒横跨两个标签(必须不报)。
+  改完全语料复扫:40 → 0,且探针照报。
+- **Fix playbook**：**凡是按"有没有填充"决定要不要检查的规则,一律走 `getComputedStyle`,
+  不要读属性**。SVG 的绘图属性有一半时间写在祖先节点上,读属性等于只看了一半。
+  另一半教训:**bbox 不是形状**。要判"压住没有",描边元素得看描边路径本身,
+  它的包围盒只能用来做粗筛。
+- **Applies to**：`skills/design-review/scripts/visual-audit.mjs` 的 `svg-shape-over-text`。
+  同族:§1.26(这条检查的来历)。
+
+### 1.59 SVG `<text>` 越过 viewBox —— 不报错、不换行,直接被裁掉
+
+- **Reader sees**：同一份 SVG,在 anthropic 图示库里句子是完整的,
+  搬进 glass 就成了 `…staying lo`。没有任何一道闸响。
+- **Why**：`<text>` 超出 viewBox 的行为是**静默裁剪** —— 它不会换行,也不算溢出错误。
+  而三家图示库的图位宽度不一样(1086 / 946 / 1230),
+  同一份 viewBox 被缩放成不同倍率;字体也不同(Poppins → SF Pro → Inter,依次变宽)。
+  于是"在这一家刚好放得下"的 `x` 值,换一家就出界。
+  根因是**用起点定位右侧文字**:`x="956" text-anchor="start"`,
+  右端落在哪里取决于这一行有多宽,而宽度取决于字体。
+- **Defense**：写法规矩(anthropic `diagram-craft.md` §20):
+  贴右边距的文字一律 `text-anchor="end"` 钉在右边距(模板用 `x="1088"`),
+  贴左边距的用 `x="32"` 起,居中的用 `middle` 并检查 `x ± 半宽` 在边距内。
+  锚点写在边距上是唯一不受字体宽度影响的写法。
+- **Fix playbook**：改完搜一遍 `text-anchor` 缺失且 `x > viewBox宽 - 200` 的 `<text>`,
+  逐个换成 `end`。**别靠"看着够宽"** —— 这一条只在最放大的那一家才暴露。
+- **Applies to**：所有手写 SVG 模板。同族:§1.50(同一张图换 gallery 要重算字号)。
+
+### 1.60 高度的天花板归 glass,宽度的地板归 apple —— 一份 SVG 要同时活在三家
+
+- **Reader sees**：viewBox 定 `1240 × 600` 在 anthropic 好好的,
+  进 apple 触 `dense-diagram-labels-small`(字太小),进 glass 触 `diagram-oversized`(图太高)。
+  两头都改一遍,三份文件的坐标从此对不上。
+- **Why**：§1.50 只记了宽度那一半 —— 各家图位宽 1086 / 946 / 1230,
+  **apple 最窄,所以它定字号下限**。漏掉的是另一半:
+  `渲染高 = viewBox 高 × 渲染宽 / viewBox 宽`,**glass 最宽,所以它定高度上限**。
+  一张图的两个约束来自两家不同的 skill,只盯一家必然翻车。
+- **Defense**：跨三家的图型模板统一用 **viewBox `0 0 1120 560`,最小 `font-size="12"`**。
+  实测:缩放 0.970 / 0.845 / 1.098;12 px 渲染成 11.6 / 10.1 / 13.2(下限 9.96 之上);
+  560 高渲染成 543 / 473 / 615(`diagram-oversized` 的 640 之下,glass 只剩 25 px 余量)。
+  写在 anthropic `diagram-craft.md` §19,连推导一起。
+- **Fix playbook**：**高度不够先砍内容,不要动 viewBox** —— 560 加到 620,glass 那份就是 681 px,当场超顶。
+  各家 gallery 版式一改,这三个宽度就要重量,别把它们当常数。
+- **Applies to**：anthropic / apple / glass 三家共用的图型模板。同族:§1.50、§1.52(`data-allow-tall`)。
+
+### 1.61 近黑色被算成"高饱和" —— HSL 的 saturation 在接近黑的地方不稳
+
+- **Reader sees**：一张图里放了一块近黑色的终端卡(`#0E1422`),
+  `visual-audit` 报 `1 full-width saturated band` —— 说这块"满幅高饱和色带抢走了注意力"。
+  可它就是黑的。
+- **Why**：`saturated-band` 的判据是 `s > 0.25 && l < 0.85`。
+  `#0E1422` 的 RGB 是 14/20/34,亮度只有 0.094,而 **HSL 的 S 在 L → 0 时会被放大**:
+  `S = (max-min)/(max+min) = (34-14)/(34+14) = 0.42`。
+  三个通道只差 20/255,算出来却是"高饱和"。
+  同一个文件里的 `diagram-monochrome` 一开始就带了 `l > 0.15` 这个下限,
+  **只有这条检查漏了**——又是"别的检查都做了而这条忘了做"的那一格(同 §1.57)。
+- **Defense**：判据补成 `s > 0.25 && l > 0.15 && l < 0.85`,与 `diagram-monochrome` 取平。
+  探针 `fixtures/bad-anthropic-saturated-band.html` **一张图两个案例**:
+  一条满幅品牌橙带(必报)+ 一块近黑终端卡(必不报);实测报 1 条,正是橙带。
+  全语料 90 页复扫:改前 2 处命中(glass 图示库的近黑终端卡 + ember blog-index 的暖色带),
+  改后 **1 处 —— ember 那条真阳还在,glass 那条假阳消失**。
+- **Fix playbook**：**凡是用 HSL 的 S 做判据,必须同时卡 L 的上下限**。
+  上限防的是极浅色(淡到看不见的 tint),下限防的是近黑 —— 两头 S 都会失真。
+  写新检查时先问"这个指标在极值附近还准吗",别只测中间地带的样本。
+- **Applies to**：`skills/design-review/scripts/visual-audit.mjs` 的 `saturated-band`。
+  同族:§1.30(diagram-monochrome,那条一开始就带了这个下限)。
+
+### 1.62 手写 HTML 数字实体把码点算错 —— 错出来的还是合法汉字,所有检查全绿
+
+- **Reader sees**：页面通篇有意义,但每隔几段冒出一个读不通的词。
+  用户 2026-09-01 原话:「GPU 是故意画成**敌开**的,敌开这种词谁看得懂」。
+  同一页上还有「一**帖**是 8.3 MB」(21 处)、「蓝线**拥弧**的位置」、「把页面**冒住**」、
+  「让人**淩涤**的那套词汇」、「显示开始**抵**」、「像素是别人**嗞**给它的」。
+- **Why**：生成脚本把中文写成十进制 HTML 数字实体,而实体是**手算的**,算错了七处。
+  每一处错出来的都是**另一个真实存在的汉字**:
+
+  | 想写 | 实际 | 我写的 | 正确 | 差 |
+  |---|---|---|---|---|
+  | 敞开 | 敌开 | `&#25932;` | `&#25950;` | −18 |
+  | 一**帧** | 一帖 | `&#24086;` | `&#24103;` | −17 |
+  | 拐弯 | 拥弧 | `&#25317;&#24359;` | `&#25296;&#24367;` | +21 / −8 |
+  | 锁住 | 冒住 | `&#20882;` | `&#38145;` | — |
+  | 混淆 | 淩涤 | `&#28137;&#28068;` | `&#28151;&#28102;` | −14 / −34 |
+
+  合法汉字渲染完全正常,`verify` / `visual-audit` / `axe` / 截图**四道全绿**,
+  连人扫一眼版式也看不出 —— 只有**逐字读**才发现是胡话。
+- **Defense**:`verify.py` 新检查 **cjk-numeric-entity**(error):
+  扫 HTML 里所有 `&#N;`,凡解码落在 U+3400–U+9FFF(CJK)一律报错,要求改字面 UTF-8。
+  **这条是把通道堵死,不是把错误认出来** —— 见下面为什么只能这么做。
+- **为什么不做"错别字检查"**：**试过,而且判定它不该上线。**
+  按字频表标记生僻字的方案实测:七个错字里抓到 4 个(敌淩涤嗞),
+  **漏掉最严重的那个**——「帖」在别的语料里是常用字(21 次出现全部放过),
+  同时误报 4 个正常词(租户/兆字节/硅片/拨)。**抓 4 漏 3 带 4 个假阳**,
+  按「假阳比没闸更糟,会教人跳过报告」的原则,不如不上。
+  根本原因是**输出侧无法判定**:「一帖」是合乎语法的中文短语,
+  没有词典或语言模型就分不出它跟「一帧」谁对。所以唯一站得住的办法是**别开这个口子**。
+- **Fix playbook**：**中文一律写字面 UTF-8,永远不要手算(或让模型算)码点。**
+  符号也一样 —— `&#8592; 返回` 里实体的结尾分号会被 §1.22 的半角标点检查当成命中(假阳),
+  写 `← 返回` 两个问题一起没了。
+- **探针**：`scripts/probe-zh-clarity.sh <干净页>` —— 注入手写实体,不报就是检查死了。
+- **Applies to**：所有含中文的 HTML。同族:§1.22(半角标点)、§1.23(U+30FB)。
+
+### 1.63 术语通篇在用,但一个都没定义 —— 页面每道检查都过,读者仍然看不懂
+
+- **Reader sees**：用户 2026-09-01 原话:「GPU 里面根本没地方放**一帧**,什么是一帧,
+  它正在读**前台缓冲**,而 GPU 在写**后台**那一个,前台,后台,这都是啥,
+  要用专业技术用语做这些 html,**要说清楚了**,说的谁看得懂这技术原理」。
+  当时那一页 verify / visual-audit / axe 三道全过,critic 也没扣分 —— 因为**没有一道检查读内容**。
+- **Why**：结构性检查看的是版式、对比度、图密度,**没有一条问「这段话读者能不能懂」**。
+  于是"术语当作双方已经共享"这种毛病可以一路绿灯到线上。
+  它和黑话不是一回事:`tech-writing-gate` 管的是「别用矩阵闭环赋能」,  <!-- bw-ok:在举例说明那张表管什么 -->
+  这条管的是「你用了帧缓冲这个词,但从没说它是什么」。**两张表查的是两件事。**
+- **Defense**:`verify.py` 新检查 **undefined-jargon**(warn):
+  词表在 `references/zh-jargon-terms.txt`(82 条,收录标准是**望文生义会得到错误理解**的词,
+  「帧缓冲」收 —— 望文是"存帧的容器",实际是一段地址;「显示器」不收)。
+  分两组:显示/总线/内核 49 条,投资与财务 33 条(「归母净利润」收 —— 「归母」给不懂的人零信息;
+  「营业收入」不收 —— 字面即义)。
+  取正文时:双语页只看 `lang-zh` span,**单语页退回整页**(见下「1.63 补」);
+  两条路径都先剥掉 script / style / HTML 注释 / `<pre>` / `<code>` —— 标识符和
+  self-diff 自评块里出现的词不算"在正文里用了这个术语"。
+  词后 40 字内没有「是 / 指 / 就是 / 即 / 意思是 / 叫」,
+  且全页没有术语表结构(class 含 term/glossary/def,或 `<dt>`),就算未定义。
+  **≥4 个才报**,让"面向专家、刻意不解释"的页面只吃一条警告而不是一墙。
+- **实测**:22 个 demo 页扫下来命中 1 处,是真阳
+  (`demos/apple-design/diagrams.html` 用了 8 个术语,一个没解释)。假阳 0。
+- **Fix playbook**：**第一次出现就当场解释**,或者加一节术语表。
+  解释按 CLAUDE.md 的「技术解释五问」写前两问就够
+  (**这是什么** / **没有它会怎样**),机制留给拥有这个概念的那一节
+  —— 一上来摆寄存器表,读者学到的是照抄不是判断。
+- **探针**：`scripts/probe-zh-clarity.sh <干净页>` —— 把定义句式和术语表结构拆掉,不报就是检查死了。
+- **Applies to**：所有含中文正文的 HTML。同族:§1.31(图密度,同样是"过检查但读不下去")。
+
+#### 1.63 补 · 这道闸自己在单语页上空转了一天 —— 绿灯是假的
+
+- **Reader sees**：2026-09-01 当天,一批**纯中文单语**投资报告跑 audit,`err=0 warn=0` 全绿。
+  人工按同一套逻辑跑正文,5 个术语确实没定义(归母净利润 / 毛利率 / 回撤 / 期望值 / 失效指标)。
+  闸一个都没看见。
+- **Why**：待检文本取自 `zh_span_pattern.findall(html)` —— 只认 `<span class="lang-zh">`。
+  单语页一个 span 都没有,`zh_plain` 恒为空串,**每个词都 `t not in zh_plain` 直接 continue**,
+  `undefined` 永远是空表,永远够不到 ≥4 的阈值。
+  于是"通过"和"根本没查"输出完全一样 —— 而这道闸本身就是为"过了检查仍然看不懂"设计的,
+  它以这种方式失效格外讽刺。
+  **空转的检查比没有检查更糟:它让人以为查过了。**
+- **Defense**：`zh_bodies` 为空时 `zh_src` 退回整页 `html`(并剥掉 script/style/注释/pre/code)。
+  仓内 135 个 HTML 用新旧两版逐一对跑,**判定零变化** —— 双语页走原路径不受影响,
+  回退只对单语页生效。
+- **探针**：`probe-zh-clarity.sh` 第 3 条用例「单语页术语全不定义」:
+  把双语页压成单语(拆 `lang-zh` span、删 `lang-en`)再去掉定义。
+  旧代码报 0 次(空转),新代码报 7 个词。**这条用例在修好之前必然 FAIL,才算回归测试。**
+- **教训(通用)**：任何"从子集里取待检文本"的检查,都要问一句
+  **「这个子集为空时会怎样」** —— 若答案是"静默通过",那它就有一整类页面查不到。
+  加检查的同时就要加一条"子集为空"的探针用例。

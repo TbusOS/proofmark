@@ -1,0 +1,1064 @@
+# Anthropic Components
+
+按 anthropic.com / claude.com 实测抽象出 27 个可复用小组件，按 **用途 / 关键 class / 示例 / 备注** 四段写。所有示例假定已引入 `assets/anthropic.css` 与 `assets/fonts.css`。
+
+## 1. Nav 导航栏
+
+**用途：** 顶部全站导航 sticky，左 logo + 中链接 + 右 `Try Claude` 橙胶囊 CTA。
+**关键 class：** `.anth-nav` `.anth-nav-inner` `.anth-button`
+**示例：**
+
+```html
+<nav class="anth-nav">
+  <div class="anth-nav-inner">
+    <a href="/" aria-label="Anthropic">Anthropic</a>
+    <div>
+      <a href="#">Claude</a>
+      <a href="#">Research</a>
+      <a href="#">Company</a>
+      <a href="#">Careers</a>
+      <a href="#">News</a>
+    </div>
+    <div>
+      <a class="anth-button" href="#">Try Claude</a>
+    </div>
+  </div>
+</nav>
+```
+
+**备注：** 64px 固定高度；底部 1px `--anth-light-gray`。链接字体 Poppins 14px / 500。`Try Claude` 是橙胶囊主 CTA —— 与 Apple 用文字链不同，Anthropic nav 顶角永远有一个橙按钮。
+
+## 2. Footer 页脚
+
+**用途：** 6 栏目录 + 法务行 + 社媒图标行。
+**关键 class：** `.anth-footer` `.anth-footer-grid` `.anth-footer-group` `.anth-footer-legal` `.anth-social`
+**示例：**
+
+```html
+<footer class="anth-footer">
+  <div class="anth-footer-grid">
+    <div class="anth-footer-group">
+      <h5>Claude</h5>
+      <a href="#">Overview</a>
+      <a href="#">Team</a>
+      <a href="#">Enterprise</a>
+      <a href="#">API</a>
+    </div>
+    <div class="anth-footer-group">
+      <h5>Research</h5>
+      <a href="#">Overview</a>
+      <a href="#">Index</a>
+      <a href="#">Papers</a>
+    </div>
+    <div class="anth-footer-group">
+      <h5>Company</h5>
+      <a href="#">About</a>
+      <a href="#">Customers</a>
+      <a href="#">News</a>
+    </div>
+    <div class="anth-footer-group">
+      <h5>Resources</h5>
+      <a href="#">Docs</a>
+      <a href="#">Status</a>
+      <a href="#">Support</a>
+    </div>
+    <div class="anth-footer-group">
+      <h5>Legal</h5>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Trust</a>
+    </div>
+    <div class="anth-footer-group">
+      <h5>Locations</h5>
+      <a href="#">San Francisco</a>
+      <a href="#">London</a>
+      <a href="#">Dublin</a>
+    </div>
+  </div>
+  <div class="anth-footer-legal">
+    <p>© 2026 Anthropic PBC</p>
+    <div class="anth-social">
+      <a href="#" aria-label="Twitter">Twitter</a>
+      <a href="#" aria-label="LinkedIn">LinkedIn</a>
+      <a href="#" aria-label="YouTube">YouTube</a>
+      <a href="#" aria-label="GitHub">GitHub</a>
+    </div>
+  </div>
+</footer>
+```
+
+**备注：** 底色 `--anth-bg-subtle` 与 page bg 形成柔分层。6 栏在 ≤768px 自动折成 2 栏，769–1024 折成 3 栏（已在 CSS 中处理）。
+
+## 3. Button 按钮
+
+**用途：** Anthropic **主用** filled orange pill 按钮（与 Apple 相反）。次级用 ghost 边框；辅助走 `.anth-link` 文字链 + `→` 箭头。
+**关键 class：** `.anth-button` `.anth-button--dark` `.anth-button--ghost` `.anth-link` `.anth-link--no-arrow`
+**示例：**
+
+```html
+<!-- 主 CTA：橙胶囊（最常用） -->
+<a class="anth-button">Try Claude</a>
+
+<!-- 次级：黑胶囊 -->
+<a class="anth-button anth-button--dark">Talk to sales</a>
+
+<!-- 三级：透明边框 -->
+<a class="anth-button anth-button--ghost">Read the paper</a>
+
+<!-- 文字链：默认带 → -->
+<a class="anth-link">Learn more</a>
+
+<!-- 文字链：不带箭头（导航 / footer） -->
+<a class="anth-link anth-link--no-arrow">Privacy</a>
+```
+
+**备注：** Anthropic **USES** filled pill buttons —— 每个 hero / pricing card / form 提交都是橙胶囊；不必克制。圆角 9999px（pill），padding 12 24，Poppins 15 / 500。Apple 风格的"全文字链"在 Anthropic 仅用于次要操作。
+
+## 4. Form 表单
+
+**用途：** 联系销售 / 注册 / 搜索等输入。
+**关键 class：** `.anth-input` `.anth-select` `.anth-textarea` `.anth-label` `.anth-button`
+**示例：**
+
+```html
+<form style="display:grid; gap:var(--space-4);">
+  <label>
+    <span class="anth-label">Work email</span>
+    <input class="anth-input" type="email" placeholder="you@company.com" />
+  </label>
+  <label>
+    <span class="anth-label">Country</span>
+    <select class="anth-select">
+      <option>United States</option>
+      <option>United Kingdom</option>
+    </select>
+  </label>
+  <label>
+    <span class="anth-label">Message</span>
+    <textarea class="anth-textarea" rows="4"></textarea>
+  </label>
+  <p><button class="anth-button" type="submit">Submit</button></p>
+</form>
+```
+
+**备注：** label 12px Poppins，控件 15px Lora；focus 态用 2px `--anth-orange` outline。圆角 16px（`--radius-md`），padding 12 16。
+
+## 5. Radio / Checkbox
+
+**用途：** 单选 / 多选输入。
+**关键 class：** `.anth-radio` `.anth-checkbox`
+**示例：**
+
+```html
+<label><input class="anth-radio" type="radio" name="plan" /> Free</label>
+<label><input class="anth-radio" type="radio" name="plan" checked /> Pro</label>
+<label><input class="anth-radio" type="radio" name="plan" /> Team</label>
+
+<label><input class="anth-checkbox" type="checkbox" /> Subscribe to research updates</label>
+<label><input class="anth-checkbox" type="checkbox" /> Subscribe to product updates</label>
+```
+
+**备注：** 用原生 `accent-color: var(--anth-orange)` 染色 —— 选中态自动呈品牌橙。尺寸 18×18px。
+
+## 6. Option Cards / Segmented
+
+**用途：** 月费 / 年费切换；plan 切换；语言切换。**复用 `.anth-tabs` tab 结构做分段控件 —— 不引入新 class。**
+**关键 class：** `.anth-tabs` `.anth-tab` `.is-active`
+**示例：**
+
+```html
+<div class="anth-tabs" role="radiogroup" aria-label="Billing cycle">
+  <button class="anth-tab is-active" aria-checked="true">Monthly</button>
+  <button class="anth-tab" aria-checked="false">Yearly</button>
+</div>
+```
+
+**备注：** 视觉与标签页完全一致：选中态橙下划线，非选中态 secondary 文字。Anthropic 的"分段控件"实质就是水平 tab。
+
+## 7. Table 表格
+
+**用途：** Pricing 比较 / 模型 spec 对比 / docs 数据表。
+**关键 class：** `.anth-table`
+**示例：**
+
+```html
+<table class="anth-table">
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th>Free</th>
+      <th>Pro</th>
+      <th>Team</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Daily messages</td>
+      <td>Limited</td>
+      <td>5× more usage</td>
+      <td>Higher limits</td>
+    </tr>
+    <tr>
+      <td>Claude Opus 4</td>
+      <td><span class="cross">—</span></td>
+      <td><span class="check">Included</span></td>
+      <td><span class="check">Included</span></td>
+    </tr>
+    <tr>
+      <td>Projects</td>
+      <td><span class="cross">—</span></td>
+      <td><span class="check">Included</span></td>
+      <td><span class="check">Included</span></td>
+    </tr>
+    <tr>
+      <td>Central admin & billing</td>
+      <td><span class="cross">—</span></td>
+      <td><span class="cross">—</span></td>
+      <td><span class="check">Included</span></td>
+    </tr>
+  </tbody>
+</table>
+```
+
+**备注：** th 底色 `--anth-bg-subtle`，Poppins 500；td Lora 15px，行底 1px `--anth-light-gray` 分隔；tr hover 整行底色变 subtle。`.check` 绿、`.cross` 灰（CSS 已定义）。
+
+## 8. Tabs 标签页
+
+**用途：** 同一区域的多视角切换（research → engineering → policy 博客分类）。
+**关键 class：** `.anth-tabs` `.anth-tab` `.is-active`
+**示例：**
+
+```html
+<div class="anth-tabs" role="tablist">
+  <button class="anth-tab is-active" role="tab" aria-selected="true">All</button>
+  <button class="anth-tab" role="tab" aria-selected="false">Research</button>
+  <button class="anth-tab" role="tab" aria-selected="false">Engineering</button>
+  <button class="anth-tab" role="tab" aria-selected="false">Policy</button>
+</div>
+<div role="tabpanel"><p>All posts...</p></div>
+```
+
+**备注：** 选中态 2px 橙下划线 + 文字色升至 primary。Poppins 14。
+
+## 9. Carousel 轮播
+
+**用途：** 客户引用墙 / 案例研究循环。**显示 `01 / 21` 计数器 + 左右箭头。**
+**关键 class：** `.anth-carousel` `.anth-carousel-viewport` `.anth-carousel-counter`
+**示例：**
+
+```html
+<div class="anth-carousel">
+  <div class="anth-carousel-viewport">
+    <blockquote class="anth-quote">
+      Claude consistently produces the best responses in our internal evaluations.
+      <cite class="anth-quote-cite">
+        <img src="logos/notion.svg" alt="Notion" />
+        <span>Simon Last · Co-founder, Notion</span>
+      </cite>
+    </blockquote>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:var(--space-4);">
+    <span class="anth-carousel-counter">01 / 21</span>
+    <div>
+      <button aria-label="Previous">&larr;</button>
+      <button aria-label="Next">&rarr;</button>
+    </div>
+  </div>
+</div>
+```
+
+**备注：** viewport 用 `transform: translateX()` JS 切换；counter 永远是 `两位数 / 总数` 格式（`01 / 21`，不是 `1/21`）。Poppins 13 secondary。
+
+## 10. Video 视频
+
+**用途：** Research 论文配套讲解视频 / 产品发布短片。
+**关键 class：** `.anth-video` `.anth-caption`
+**示例：**
+
+```html
+<figure>
+  <video class="anth-video" poster="poster.jpg" controls>
+    <source src="claude-launch.mp4" type="video/mp4" />
+  </video>
+  <figcaption class="anth-caption" style="text-align:center;">Watch the launch</figcaption>
+</figure>
+```
+
+**备注：** width 100% + 圆角 16px（`--radius-md`）。**禁止**自动播放带声音；poster 用品牌色调插画。
+
+## 11. Badge / Chip 分类
+
+**用途：** 卡片顶部分类标签（Research / Engineering / Policy）；新功能 NEW；状态。
+**关键 class：** `.anth-badge`
+**示例：**
+
+```html
+<span class="anth-badge">Research</span>
+<span class="anth-badge">Engineering</span>
+<span class="anth-badge">Policy</span>
+<span class="anth-badge">New</span>
+```
+
+**备注：** 12px Poppins，padding 4 10，pill 形，底 `--anth-light-gray`，文字 primary。需要主色高亮时可内联 `style="background:var(--anth-orange); color:var(--anth-bg);"`。
+
+## 12. Pull quote 引用
+
+**用途：** 客户证言（带公司 logo）/ 论文引用。
+**关键 class：** `.anth-quote` `.anth-quote-cite`
+**示例：**
+
+```html
+<blockquote class="anth-quote">
+  Claude is the most thoughtful and capable assistant we've worked with —
+  it changed how our entire research team operates.
+  <cite class="anth-quote-cite">
+    <img src="logos/quora.svg" alt="Quora" />
+    <span>Adam D'Angelo · CEO, Quora</span>
+  </cite>
+</blockquote>
+```
+
+**备注：** Lora italic 22px，左 3px 橙竖线，max-width 680。`.anth-quote-cite` 内**必须**含公司 logo `<img>`（高度 20px，已 CSS 定义）+ 作者姓名 / 职位（Poppins 14 normal）。
+
+## 13. List
+
+**用途：** 特性枚举 / 步骤说明。
+**关键 class：** 无（原生 `<ul>` `<ol>` + Lora 正文样式即可）
+**示例：**
+
+```html
+<ul>
+  <li>Multi-step reasoning across long contexts.</li>
+  <li>Tool use for retrieval, code, and data analysis.</li>
+  <li>Constitutional AI fine-tuning.</li>
+</ul>
+
+<ol>
+  <li>Sign up for a Claude account.</li>
+  <li>Connect your data sources.</li>
+  <li>Start chatting with your knowledge.</li>
+</ol>
+```
+
+**备注：** Lora 18 / 1.65 行高；项与项间距 8px；不引入自定义 marker，保留原生 disc / decimal。
+
+## 14. Banner
+
+**用途：** 顶部模型发布 / 重要公告轮播条。
+**关键 class：** `.anth-banner` `.anth-link`
+**示例：**
+
+```html
+<div class="anth-banner">
+  <span class="anth-badge">New</span>
+  <p style="margin:0;">Claude Opus 4 is now available in the API.</p>
+  <a class="anth-link">Read the announcement</a>
+</div>
+```
+
+**备注：** 底 `--anth-bg-subtle` 圆角 16；横向 flex，gap 16；字号 14。可放 hero 上方做条带，也可塞进文章内做提示。
+
+## 15. Breadcrumbs
+
+**用途：** docs / research 子页层级导航。
+**关键 class：** `.anth-breadcrumbs`
+**示例：**
+
+```html
+<ul class="anth-breadcrumbs">
+  <li><a href="/">Home</a></li>
+  <li><a href="/research">Research</a></li>
+  <li>Constitutional AI</li>
+</ul>
+```
+
+**备注：** 分隔符 `›`（CSS `::after` 自动注入），最后一项无分隔符也无链接态。Poppins 13 secondary。
+
+## 16. Pagination
+
+**用途：** 博客 / news / case studies 列表翻页。**Anthropic 用橙胶囊"加载更多"，不用数字分页。**
+**关键 class：** `.anth-button`
+**示例：**
+
+```html
+<p style="text-align:center; margin-top:var(--space-7);">
+  <button class="anth-button">Load more</button>
+</p>
+```
+
+**备注：** **不要**写 `1 2 3 ...` 数字分页；Anthropic 列表统一橙胶囊"Load more"。点击后 append 下一批卡片，URL 用 `?page=N` query 参数。
+
+## 17. Search
+
+**用途：** docs.anthropic.com 站内搜索框。
+**关键 class：** `.anth-input`
+**示例：**
+
+```html
+<form role="search">
+  <label class="anth-sr-only" for="search">Search docs</label>
+  <input class="anth-input" id="search" type="search" placeholder="Search documentation..." />
+</form>
+```
+
+**备注：** 用普通 `.anth-input` 即可 —— focus 态自动 2px 橙 outline。可与下拉建议面板组合（自定义 absolute 定位）。
+
+## 18. Logo wall 客户墙
+
+**用途：** Enterprise / 首页底部"被这些公司使用"。6 列 grayscale。
+**关键 class：** `.anth-logo-wall`
+**示例：**
+
+```html
+<div class="anth-logo-wall">
+  <img src="logos/lyft.svg" alt="Lyft" />
+  <img src="logos/notion.svg" alt="Notion" />
+  <img src="logos/zoom.svg" alt="Zoom" />
+  <img src="logos/asana.svg" alt="Asana" />
+  <img src="logos/quora.svg" alt="Quora" />
+  <img src="logos/dna.svg" alt="DNA" />
+</div>
+```
+
+**备注：** 6 列 grid（≤768 折成 3 列）；图 max-height 32px；`grayscale(1) opacity(0.6)`，hover 还原。所有 logo 必须有 `alt`。
+
+## 19. Pricing Card 套餐卡
+
+**用途：** /pricing 页 plan 比较，三张并排，推荐款橙细边高亮。
+**关键 class：** `.anth-card` `.anth-button` `.anth-button--ghost` `.anth-badge` `.anth-caption`
+**示例：**
+
+```html
+<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-6);">
+
+  <div class="anth-card">
+    <h3>Free</h3>
+    <p class="anth-caption">For individuals exploring Claude.</p>
+    <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$0</p>
+    <a class="anth-button anth-button--ghost">Try Claude</a>
+  </div>
+
+  <div class="anth-card" style="border:2px solid var(--anth-orange);">
+    <span class="anth-badge">Most popular</span>
+    <h3 style="margin-top:var(--space-3);">Pro</h3>
+    <p class="anth-caption">For everyday productivity.</p>
+    <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$20<span style="font-size:14px;">/mo</span></p>
+    <a class="anth-button">Get Pro</a>
+  </div>
+
+  <div class="anth-card">
+    <h3>Team</h3>
+    <p class="anth-caption">For teams that build with Claude.</p>
+    <p style="font-family:var(--font-heading); font-size:36px; margin:var(--space-4) 0;">$30<span style="font-size:14px;">/mo</span></p>
+    <a class="anth-button anth-button--ghost">Get Team</a>
+  </div>
+
+</div>
+```
+
+**备注：** 推荐款用内联 `border:2px solid var(--anth-orange)` 高亮（不抽象成单独 class）；非推荐款 ghost 按钮；推荐款实心橙按钮。
+
+## 20. Customer quote carousel
+
+**用途：** 大段客户引用 + 公司 logo + 作者；多个引用循环展示。
+**关键 class：** `.anth-carousel` `.anth-carousel-viewport` `.anth-carousel-counter` `.anth-quote` `.anth-quote-cite`
+**示例：**
+
+```html
+<section class="anth-section anth-section--subtle">
+  <div class="anth-container">
+    <div class="anth-carousel">
+      <div class="anth-carousel-viewport">
+
+        <blockquote class="anth-quote" style="flex:0 0 100%;">
+          Claude has transformed how we serve our 400 million monthly users.
+          The quality of responses is unmatched.
+          <cite class="anth-quote-cite">
+            <img src="logos/quora.svg" alt="Quora" />
+            <span>Adam D'Angelo · CEO, Quora</span>
+          </cite>
+        </blockquote>
+
+        <blockquote class="anth-quote" style="flex:0 0 100%;">
+          We chose Claude for its safety guarantees and its ability to follow
+          nuanced instructions across our enterprise workflows.
+          <cite class="anth-quote-cite">
+            <img src="logos/notion.svg" alt="Notion" />
+            <span>Simon Last · Co-founder, Notion</span>
+          </cite>
+        </blockquote>
+
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-top:var(--space-5);">
+        <span class="anth-carousel-counter">01 / 21</span>
+        <div>
+          <button aria-label="Previous">&larr;</button>
+          <button aria-label="Next">&rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+```
+
+**备注：** 与 §9 carousel 同结构，但 viewport 内放多个 100% 宽 quote。Section 用 subtle 背景把引用从主页面分出。
+
+## 21. Code block
+
+**用途：** 文档示例代码 / API 请求。
+**关键 class：** `.anth-code`
+**示例：**
+
+```html
+<pre class="anth-code"><code>import anthropic
+
+client = anthropic.Anthropic()
+
+message = client.messages.create(
+    model="claude-opus-4-20250514",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Hello, Claude"}
+    ]
+)
+
+print(message.content)
+</code></pre>
+```
+
+**备注：** JetBrains Mono 14px，底 `--anth-bg-subtle`，圆角 16，padding 32，水平滚动；不显示行号；不强制语法高亮（如需 highlight.js 接入即可）。
+
+## 22. Inline (code / kbd / mark)
+
+**用途：** 行内代码 / 键盘按键 / 文本高亮。
+**关键 class：** 无（语义标签 `<code>` `<kbd>` `<mark>` 已在 anthropic.css 中样式化）
+**示例：**
+
+```html
+<p>Press <kbd>⌘</kbd>+<kbd>K</kbd> to open the search overlay.</p>
+<p>Use the <code>messages.create()</code> method to send a request.</p>
+<p>We focus on <mark>helpful, harmless, and honest</mark> AI.</p>
+```
+
+**备注：** `<code>` 灰底无边框；`<kbd>` 灰底 + 1px 边框；`<mark>` 用 20% 不透明橙底（`rgba(217,119,87,0.2)`）。
+
+## 23. Figure / caption
+
+**用途：** 配图 / 图表 + 说明文字。
+**关键 class：** `.anth-caption`
+**示例：**
+
+```html
+<figure>
+  <svg viewBox="0 0 500 500" width="100%" role="img" aria-label="Abstract composition">
+    <circle cx="240" cy="240" r="140" fill="#d97757" opacity="0.9"/>
+    <circle cx="340" cy="180" r="80"  fill="#6a9bcc" opacity="0.9"/>
+  </svg>
+  <figcaption class="anth-caption" style="text-align:center;">Figure 1. Constitutional AI training loop.</figcaption>
+</figure>
+```
+
+**备注：** caption 居中、13px、`--anth-text-secondary`，与图之间 12px gap。
+
+## 24. Divider
+
+**用途：** 章节 / 大块之间分隔。
+**关键 class：** `.anth-divider`
+**示例：**
+
+```html
+<section>...</section>
+<hr class="anth-divider" />
+<section>...</section>
+```
+
+**备注：** 1px `--anth-light-gray`，上下 64px margin（`var(--space-8)`）。**不要**用 box-shadow 做伪分隔。
+
+## 25. Details 折叠
+
+**用途：** FAQ / 法律条款 / 文档可展开段。
+**关键 class：** `.anth-details`
+**示例：**
+
+```html
+<details class="anth-details">
+  <summary>What is Constitutional AI?</summary>
+  <p>Constitutional AI (CAI) is an approach for training a helpful, harmless,
+  and honest assistant using AI feedback rather than human labels for harmlessness.</p>
+</details>
+
+<details class="anth-details">
+  <summary>How does Claude handle long contexts?</summary>
+  <p>Claude supports up to 500K tokens of context...</p>
+</details>
+```
+
+**备注：** summary 后的 `▸` 图标 open 状态旋转 90°，过渡 240ms。底 `--anth-bg-subtle`，圆角 16。
+
+## 26. Admonition
+
+**用途：** 文档正文中的提醒：info（默认）/ warning / success / danger。
+**关键 class：** `.anth-admonition` `.anth-admonition--warning` `.anth-admonition--success` `.anth-admonition--danger`
+**示例：**
+
+```html
+<!-- info（默认，无 modifier） -->
+<aside class="anth-admonition">
+  <h5>Note</h5>
+  <p>This API endpoint requires an Anthropic API key.</p>
+</aside>
+
+<!-- warning -->
+<aside class="anth-admonition anth-admonition--warning">
+  <h5>Warning</h5>
+  <p>This model is in beta and may change without notice.</p>
+</aside>
+
+<!-- success -->
+<aside class="anth-admonition anth-admonition--success">
+  <h5>Success</h5>
+  <p>Your API key has been created and copied to clipboard.</p>
+</aside>
+
+<!-- danger -->
+<aside class="anth-admonition anth-admonition--danger">
+  <h5>Danger</h5>
+  <p>Deleting an organization removes all API keys and audit logs irreversibly.</p>
+</aside>
+```
+
+**备注：** info 是默认（无 `--info` modifier 类），h5 着色 `--anth-blue`；warning 着 `--anth-orange`；success 着 `--anth-green`；danger 着 `--anth-danger`。底色统一 `--anth-bg-subtle`。
+
+## 27. Empty / 404
+
+**用途：** 无结果页 / 404 页。
+**关键 class：** `.anth-section` `.anth-container--narrow` `.anth-button` `.anth-link`
+**示例：**
+
+```html
+<section class="anth-section" style="text-align:center;">
+  <div class="anth-container--narrow">
+    <h1>We can't find that page.</h1>
+    <p>The link may be broken or the page may have moved. Try one of the links below.</p>
+    <p style="margin-top:var(--space-6);">
+      <a class="anth-button">Go to homepage</a>
+      <a class="anth-link" style="margin-left:var(--space-4);">Contact support</a>
+    </p>
+  </div>
+</section>
+```
+
+**备注：** 居中对齐，narrow 容器；不放抽象插画（保持简洁）；至少提供一个橙胶囊主入口 + 一个文字链辅助。
+
+## 28. Inline SVG Illustration
+
+**用途：** hero / 能力卡 / 任何图像位。**绝对不要**用 `[placeholder]` 文字代替；写真的 inline SVG。
+**关键 class：** 无（inline SVG 不需要 class）
+**示例 — hero 抽象合成（品牌三色）：**
+
+```html
+<svg role="img" aria-label="Composable skill blocks"
+     viewBox="0 0 1200 380"
+     style="display:block; width:100%; max-width:1200px; height:auto;
+            border-radius:var(--radius-lg);
+            background:linear-gradient(135deg, #faf9f5 0%, #f0ede3 100%);">
+  <rect x="220" y="90"  width="180" height="180" rx="32" fill="#d97757"/>
+  <circle cx="530" cy="190" r="92" fill="#6a9bcc"/>
+  <rect x="680" y="110" width="150" height="150" rx="75" fill="#788c5d"/>
+  <rect x="890" y="90"  width="180" height="180" rx="32" fill="#FFFFFF" stroke="#e8e6dc" stroke-width="1.5"/>
+  <!-- accent dots -->
+  <circle cx="100" cy="190" r="14" fill="#d97757"/>
+  <circle cx="1140" cy="210" r="20" fill="#6a9bcc" opacity="0.65"/>
+</svg>
+```
+
+**示例 — 能力卡图标（色块内嵌白色线性 icon，56×56）：**
+
+```html
+<div style="width:56px; height:56px; border-radius:var(--radius-md); background:var(--anth-orange); display:grid; place-items:center;">
+  <svg viewBox="0 0 32 32" width="28" height="28">
+    <g fill="none" stroke="#faf9f5" stroke-width="1.8" stroke-linecap="round">
+      <rect x="8" y="8" width="16" height="16" rx="2"/>
+      <rect x="12" y="12" width="8" height="8" rx="1"/>
+    </g>
+  </svg>
+</div>
+```
+
+**规则：**
+- **色板**：只用 `--anth-bg` (#faf9f5) / `--anth-text` (#141413) / `--anth-orange` (#d97757) / `--anth-blue` (#6a9bcc) / `--anth-green` (#788c5d) / `--anth-light-gray` (#e8e6dc)；插画不用白色作主色（留给卡片）。
+- **hero 插画**：圆角矩形 `rx=20-75` + 圆形 + 一个白卡描边（`#e8e6dc` 1.5px）提供呼吸；`opacity: 0.65` 可用于远景球体。
+- **线性图标**：`stroke-width: 1.8`, `stroke-linecap: round`, 32×32 viewBox，外显尺寸 28×28，放进 56×56 色块里。
+- **a11y**：有信息价值的 SVG 加 `role="img"` + `aria-label`；纯装饰加 `aria-hidden="true"`。
+
+❌ **不要**写 `<div>[abstract SVG illustration]</div>` / `<div>[icon]</div>` 这样的占位 —— 永远用真 SVG。
+
+---
+
+## Scenario recipes — 表单 / 控件 / 反馈
+
+§1-§28 列出了 anthropic.css 已经定义的组件。以下是 canonical 没现成卡片但常用的控件，给出 anthropic 化的样式合约。**新加的 class 名跟随 `.anth-*` 前缀**；如果还没在 `assets/anthropic.css` 里，按 recipe 自己 inline `<style>` 或追加到 anthropic.css。
+
+> **verify.py 注意**：verify 只扫 `<link>` 进来的外部 CSS，不读 `<style>` 块。新加的 recipe class 如果只 inline，会被报"undefined class"。两个出路：(a) 把 recipe class 追加到 `assets/anthropic.css` 里持久化；(b) 跑 audit/verify 时用 `--css=<path>` 把临时 CSS 文件加进来。生产上推荐 (a) — recipe 用得稳了就提到主 CSS。
+
+### C1 · `<input>` / `<textarea>` （`.anth-input` / `.anth-textarea`）
+
+```css
+.anth-input,
+.anth-textarea {
+  width: 100%;
+  font-family: var(--font-heading);   /* Poppins，不是 Lora —— 表单是控件不是阅读 */
+  font-size: 16px;                     /* 不要 < 16px：iOS 会强制缩放页面 */
+  line-height: 1.5;
+  color: var(--anth-text);
+  background: var(--anth-bg);          /* 不是 white：保持暖底 */
+  border: 1px solid var(--anth-light-gray);
+  border-radius: var(--radius-md);     /* 16px，不是 4px */
+  padding: 12px 16px;
+  transition: border-color var(--duration-sm) var(--ease-anth),
+              box-shadow      var(--duration-sm) var(--ease-anth);
+}
+.anth-input::placeholder,
+.anth-textarea::placeholder {
+  color: var(--anth-mid-gray);
+}
+.anth-input:hover,
+.anth-textarea:hover { border-color: var(--anth-text-secondary); }
+.anth-input:focus,
+.anth-textarea:focus {
+  outline: none;
+  border-color: var(--anth-orange);
+  box-shadow: 0 0 0 3px rgba(217,119,87,0.20);  /* 橙色光环 3px */
+}
+.anth-input[aria-invalid="true"],
+.anth-input.is-error {
+  border-color: var(--anth-danger);
+}
+.anth-textarea { resize: vertical; min-height: 96px; }
+```
+
+```html
+<label class="anth-label" for="email">Work email</label>
+<input id="email" class="anth-input" type="email" placeholder="you@company.com">
+```
+
+- 不要 `border: none + bg gray` 风格（material design 调）
+- 不要 floating label（anthropic 是 above-input）
+- 不要 focus 时改 background；只动 border + shadow
+
+### C2 · `<select>` （`.anth-select`）
+
+```css
+.anth-select {
+  /* 继承 .anth-input 全部属性，再追加： */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%236b6a5f' d='M4 6l4 4 4-4'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
+```
+- 不用浏览器默认箭头（不一致）；inline SVG `▾` 用 `--anth-text-secondary` 灰
+- focus 态 ring 同 input
+
+### C3 · `<input type="checkbox">` / `<input type="radio">` （`.anth-check`）
+
+```css
+.anth-check {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--anth-light-gray);
+  background: var(--anth-bg);
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background var(--duration-sm), border-color var(--duration-sm);
+}
+.anth-check[type="checkbox"] { border-radius: var(--radius-sm); }   /* 6px 方角 */
+.anth-check[type="radio"]    { border-radius: 9999px; }              /* 圆 */
+.anth-check:hover  { border-color: var(--anth-text-secondary); }
+.anth-check:focus-visible {
+  outline: 2px solid var(--anth-orange);
+  outline-offset: 2px;
+}
+.anth-check:checked {
+  background: var(--anth-orange);
+  border-color: var(--anth-orange);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M3 8l3.5 3.5L13 5'/></svg>");
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.anth-check[type="radio"]:checked {
+  background: var(--anth-orange);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='3.5' fill='white'/></svg>");
+}
+```
+- 不要在 label 上加额外 `cursor:pointer` 边框；让 input + label 同一行 baseline 对齐即可
+- 不要 toggle switch 顶替 checkbox（anthropic 表单里不用 switch；switch 留给设置项）
+
+### C4 · Toggle switch （`.anth-switch`，仅设置项）
+
+```css
+.anth-switch {
+  appearance: none;
+  width: 36px; height: 20px;
+  background: var(--anth-mid-gray);
+  border-radius: 9999px;
+  position: relative;
+  cursor: pointer;
+  transition: background var(--duration-sm) var(--ease-anth);
+}
+.anth-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 9999px;
+  background: white;
+  transition: transform var(--duration-sm) var(--ease-anth);
+}
+.anth-switch:checked { background: var(--anth-orange); }
+.anth-switch:checked::after { transform: translateX(16px); }
+```
+- 仅用于 "开 / 关" 二态设置（如 "Email me weekly digest"）
+- 表单里的 yes/no 仍用 checkbox
+
+### C5 · Tab list （`.anth-tabs` / `.anth-tab`）
+
+```css
+.anth-tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--anth-light-gray);
+}
+.anth-tab {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--anth-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;            /* 盖住 tablist 底线 */
+  transition: color        var(--duration-sm) var(--ease-anth),
+              border-color var(--duration-sm) var(--ease-anth);
+}
+.anth-tab:hover { color: var(--anth-text); }
+.anth-tab[aria-selected="true"] {
+  color: var(--anth-text);
+  border-bottom-color: var(--anth-orange);
+}
+```
+- 见 layout §L4
+- 不要 pill / capsule（橙底白字背景）；那是 ember 风格
+
+### C6 · Accordion （`<details>` + `<summary>` + `.anth-accordion-item`）
+
+```css
+.anth-accordion-item {
+  border-bottom: 1px solid var(--anth-light-gray);
+  padding: var(--space-5) 0;
+}
+.anth-accordion-item > summary {
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--anth-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: color var(--duration-sm) var(--ease-anth);
+}
+.anth-accordion-item > summary::-webkit-details-marker { display: none; }
+.anth-accordion-item > summary::after {
+  content: "+";
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--anth-text-secondary);
+  transition: transform var(--duration-sm) var(--ease-anth);
+}
+.anth-accordion-item[open] > summary::after { content: "−"; }
+.anth-accordion-item > div {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--anth-text-secondary);
+  margin-top: var(--space-3);
+  max-width: 680px;
+}
+```
+- 用 `<details>` 不用 JS：原生展开 + 键盘可达
+- 不要 chevron icon；用 `+` / `−` 文字符号
+
+### C7 · Toast notification （`.anth-toast`）
+
+```css
+.anth-toast {
+  position: fixed;
+  bottom: var(--space-5);
+  right: var(--space-5);
+  background: var(--anth-text);
+  color: var(--anth-bg);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 500;
+  max-width: 360px;
+}
+.anth-toast--success { background: var(--anth-green); color: white; }
+.anth-toast--error   { background: var(--anth-danger); color: white; }
+.anth-toast--info    { background: var(--anth-text); color: var(--anth-bg); }
+```
+- 进出动画：见 motion §M7
+- 文字行数 ≤ 2，超出改成 banner
+
+### C8 · Modal / Dialog （`.anth-dialog`）
+
+```css
+.anth-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20,20,19,0.45);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+.anth-dialog {
+  background: var(--anth-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-pop);
+  max-width: 560px;
+  width: calc(100% - var(--space-7));
+  padding: var(--space-7);
+}
+.anth-dialog h2 {
+  font-family: var(--font-heading);
+  font-size: 28px;        /* 不是 section h2 的 40px */
+  font-weight: 600;
+  margin: 0 0 var(--space-5);
+}
+.anth-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-7);
+}
+```
+- 进出动画：见 motion §M6
+- 不要 backdrop blur；半透明实色背板即可
+
+### C9 · Banner / Inline alert （`.anth-banner`）
+
+```css
+.anth-banner {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  border-left: 3px solid;          /* 橙色或对应 severity */
+  background: var(--anth-bg-subtle);
+}
+.anth-banner--info    { border-left-color: var(--anth-blue); }
+.anth-banner--success { border-left-color: var(--anth-green); }
+.anth-banner--warn    { border-left-color: var(--anth-orange); }
+.anth-banner--danger  { border-left-color: var(--anth-danger); }
+.anth-banner__title {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+.anth-banner__body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--anth-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+```
+- 用左 3px 色边 + 暖底，不要整片纯色背景（避免页面失衡）
+- icon 可选，放在最左 24×24（线性 stroke 1.8，匹配组件 §28）
+
+### C10 · Tooltip （`.anth-tooltip`）
+
+```css
+.anth-tooltip {
+  position: absolute;
+  background: var(--anth-text);
+  color: var(--anth-bg);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--duration-sm), transform var(--duration-sm);
+}
+[data-tooltip]:hover + .anth-tooltip,
+[data-tooltip]:focus + .anth-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+```
+- 始终 ≥ 60ms delay 才显（防止 hover 抖动）
+- 内容 ≤ 6 个词；超过就改 popover
+
+### C11 · Skeleton loading （`.anth-skeleton`）
+
+```css
+.anth-skeleton {
+  background: linear-gradient(90deg,
+    var(--anth-bg-subtle) 0%,
+    #f5f3ec 50%,
+    var(--anth-bg-subtle) 100%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: anth-shimmer 1.4s linear infinite;
+}
+@keyframes anth-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.anth-skeleton--line { height: 14px; margin: var(--space-2) 0; }
+.anth-skeleton--block { height: 120px; }
+.anth-skeleton--circle { border-radius: 9999px; }
+```
+- 替代 spinner；anthropic 视觉里转圈 spinner 极少出现
+- 长度模拟真实内容（不是统一一条长 bar）
+
+---
+
+## Scenario decision tree — 哪个组件
+
+```
+要呈现什么？
+├─ 主操作              → §3 .anth-button (primary)
+├─ 次操作 / 取消        → §3 .anth-button.anth-button--ghost
+├─ 单字段输入           → C1 .anth-input
+├─ 多行输入             → C1 .anth-textarea
+├─ 单选下拉            → C2 .anth-select
+├─ 多项可选            → C3 .anth-check[type=checkbox]
+├─ 单项二选一          → C3 .anth-check[type=radio]
+├─ 设置开关            → C4 .anth-switch
+├─ 内容切换            → C5 .anth-tabs
+├─ 折叠 FAQ            → C6 accordion
+├─ 临时浮层提示         → C7 .anth-toast (3.5s 自消) / C9 .anth-banner (常驻)
+├─ 阻塞式确认          → C8 .anth-dialog
+├─ hover 解释          → C10 .anth-tooltip (≤ 6 词)
+├─ 加载占位            → C11 .anth-skeleton（不要 spinner）
+└─ 都不匹配 → 回 §1-§28 找最近组件 + 复用其样式 token
+```

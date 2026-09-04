@@ -1,0 +1,101 @@
+# proofmark
+
+[English](README.md)
+
+**九套设计语言给编程 agent 用，外加一道会把不合格产物打回来的验收检查。**
+
+给编程 agent 的设计 skill，别人发的是提示词。这个仓发的是提示词，**加上检查提示词有没有被照做的那个东西**。
+
+下面这个页面：结构检查过了，渲染视觉审计也过了，在浏览器里看完全正常。
+
+```console
+$ bin/design-review examples/looks-fine.html
+
+━━ [1/4] verify.py (structural)
+design-review verify: OK — 1 file(s) passed (auto-detected skill)
+
+━━ [2/4] visual-audit.mjs (rendered + brand + italic + smell)
+visual-audit: OK  (examples/looks-fine.html)
+
+━━ [3/4] axe-audit.mjs (accessibility · axe-core)
+axe-audit: 1 rule(s), 34 element(s)
+  [error] color-contrast (serious) ×34 — Elements must meet minimum color contrast ratio thresholds
+      .anth-hero > .anth-container > p > .lang-en
+         Element has insufficient color contrast of 2.31 (foreground #a8a69c,
+         background #faf9f5, font size 14.3pt, weight normal). Expected 4.5:1
+      … and 33 more
+
+✗ axe-audit found blocking violations — fix before continuing
+$ echo $?
+1
+```
+
+它和一张合格样张的差别只有两个颜色值，调到刚好不满足 4.5:1 为止。**看不出哪里不对**。这正是提示词管不住、人快速过一眼也会放过去的那一类。
+
+## 九套
+
+每一套都是完整的设计语言：字号阶梯、颜色 token、版面节奏、动效、图表画法，外加一批做好的参考页面，生成器拿它们当标尺。
+
+| Skill | 声音 | 参考页数 |
+|---|---|---|
+| `anthropic-design` | 暖色杂志感。米色底、衬线正文、橙色重点 | 10 |
+| `apple-design` | 产品营销式极简。白底、SF 字体、数字当标题 | 10 |
+| `ember-design` | 手作感的暖。米色、巧克力棕、金 | 10 |
+| `sage-design` | 北欧的安静。米色、鼠尾草绿、深靛 | 10 |
+| `atelier-design` | 暖玻璃产品界面。九套里唯一画应用本身的，而且真的能点 | 6 |
+| `glass-design` | 极光玻璃拟态。深藏青、磨砂面板、明暗双主题 | 4 |
+| `eclat-design` | 发布会舞台，哑光电影底 | 3 |
+| `lectern-design` | 会议室简报。纸白、衬线、数据前置 | 3 |
+| `primer-design` | 技术图解。让图承载论证 | 3 |
+
+一共 59 张参考样张，在 `skills/*/references/canonical/` 下。它们能独立打开，59 张全部能过检查链，所以生成器可以直接拿它们做标尺。
+
+## 那道检查
+
+`bin/design-review <page.html>` 按顺序跑四道，第一道不过就停。
+
+| | 它判什么 |
+|---|---|
+| `verify.py` | 结构：占位符残留、缺 viewport、未定义的 class、BEM 修饰符缺基类、SVG 标签不配对、hero 容器宽度、已经有 token 却写死的颜色 |
+| `visual-audit.mjs` | 渲染后的页面：对比度、品牌存在感、图表标签字号、孤立卡片、SVG 文字可读性、以及借用了别家调色板的颜色 |
+| `axe-audit.mjs` | 可访问性，走 axe-core。四条规则阻断：`color-contrast`、`link-name`、`aria-prohibited-attr`、`svg-img-alt` |
+| `screenshot.mjs` | 整页 PNG，留给人眼那一部分 |
+
+`--pixel` 是第五道，拿渲染像素跟提交过的基线比。它是选配，因为**有意的改版和真正的回退一样会让它报错**。
+
+口味另外判。`design-critic` 一个评审员看整页；也可以四个专家并行看——版式、文案、插画、品牌，权重 25/25/20/30。
+
+## 它不判什么
+
+这道检查只回答一个问题：**这一页有没有照着它声称的那套设计语言写**。它不回答页面好不好、内容对不对、读者能不能跟上论证。全部检查通过，和这一页该扔掉，两件事可以同时成立。
+
+对比度、class 有没有定义、标签多大，这些有数值答案。版面留白是否用得其所没有，早几轮试着把它机械化，误报率高到那条检查没法用。
+
+## 它怎么做到不重复犯错
+
+`skills/design-review/references/known-bugs.md` 里有 93 条。每一条都是某次被评审员抓到的毛病。`design-learner` 把一次抓到变成两样东西：那个文件里的一行，以及只要机器能判，就在 `visual-audit.mjs` 里加一条新检查。93 条里配上了检查的那些，不再需要经过评审员。
+
+## 装
+
+```bash
+git clone https://github.com/TbusOS/proofmark.git
+cd proofmark
+npm install          # playwright, axe-core, pixelmatch, pngjs
+bin/design-review examples/looks-fine.html   # 应该退出码 1
+```
+
+要在 Claude Code 里用这些 skill，建 symlink：
+
+```bash
+ln -s "$PWD/skills/anthropic-design" ~/.claude/skills/
+ln -s "$PWD/skills/design-review"    ~/.claude/skills/
+ln -s "$PWD/.claude/agents/design-critic.md" ~/.claude/agents/
+```
+
+skill 本身是纯 markdown，没有运行时依赖。检查链需要 Node 和 Python 3。
+
+## 上游
+
+这些 skill 同时活在 [sky-skills](https://github.com/TbusOS/sky-skills) 里，跟内核和文档工具放在一起。那份是源，本仓单独拿出设计这一半，好让人不用装其余部分。`bin/sync-from-upstream.sh --check` 会报出两边的差异。
+
+MIT。

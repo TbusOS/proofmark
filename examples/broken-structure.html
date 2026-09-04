@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page the gate rejects</title>
+<link rel="stylesheet" href="../skills/anthropic-design/assets/fonts.css">
+<link rel="stylesheet" href="../skills/anthropic-design/assets/anthropic.css">
+<style>
+  /* Deliberately hardcoded — every one of these has a token. */
+  .demo-note { color: #B0AEA5; background: #FAF9F5; }
+  .demo-faint { color: #D8D6CE; background: #FAF9F5; }
+</style>
+</head>
+<body>
+  <header class="anth-hero">
+    <div class="anth-container--narrow">
+      <h1>A page the gate rejects</h1>
+      <p class="anth-lead">Everything below is wrong on purpose. [TODO: replace before shipping]</p>
+    </div>
+  </header>
+
+  <main class="anth-container">
+    <section class="anth-section">
+      <div class="anth-card--featured">
+        <h2>A modifier with no base class</h2>
+        <p class="demo-note">This paragraph is set in a grey that does not clear 4.5:1 on cream.</p>
+        <p class="demo-faint">This one is worse.</p>
+      </div>
+
+      <div class="anth-widget">
+        <p>That container class is not defined in any stylesheet this page loads.</p>
+      </div>
+
+      <p><a href="https://example.com"><span aria-hidden="true">&rarr;</span></a></p>
+    </section>
+  </main>
+</body>
+</html>

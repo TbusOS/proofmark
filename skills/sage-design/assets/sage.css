@@ -1,0 +1,646 @@
+/* === Sage Design System — Core CSS ===
+ * Last verified: 2026-04-19
+ * Docs: ../references/design-tokens.md
+ * Palette: rice-paper cream + sage green + deep indigo (Nordic minimal, quiet editorial)
+ */
+
+/* ---------- Section A: Tokens ---------- */
+:root {
+  /* Colors */
+  --sage-bg: #f8faec;
+  --sage-bg-subtle: #eef2de;
+  --sage-text: #2a2c40;
+  /* 2026-08-14: was #6d6f82 — 4.33:1 on --sage-bg-subtle, i.e. under AA for
+   * normal text on the one ground it lands on most. axe-core measured it on
+   * 18 elements. #5f6172 clears every sage ground (5.35 worst). */
+  --sage-text-secondary: #5f6172;
+  /* FILL ONLY — never `color:`. #97B077 as text is 2.26:1 on cream and 2.38 on
+   * white. This file already said so in a comment further down while nine
+   * rules still used it as text; axe-core found all of them. */
+  --sage-sage: #97B077;
+  /* THE TEXT VARIANT of the brand green. It has to actually pass: the old
+   * #7a9561 measured 3.15:1 on --sage-bg and 2.92 on --sage-bg-subtle, so the
+   * token that existed to solve the contrast problem did not solve it.
+   * #5c7444 clears every ground (4.56 worst). --sage-sage stays exactly as it
+   * was: it is a FILL, and fills have no contrast requirement. */
+  --sage-sage-dark: #5c7444;
+  --sage-ink: #393C54;
+  --sage-divider: #e5e8da;
+  --sage-card: #ffffff;
+  --sage-danger: #b04545;
+
+  /* Fonts */
+  --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* Space */
+  --space-1: 4px;  --space-2: 8px;   --space-3: 12px;  --space-4: 16px;
+  --space-5: 24px; --space-6: 32px;  --space-7: 48px;  --space-8: 64px;
+  --space-9: 80px; --space-10: 120px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  /* Shadows (warm brown alpha) */
+  --shadow-card: 0 4px 20px rgba(73, 45, 34, 0.08);
+  --shadow-pop: 0 12px 40px rgba(73, 45, 34, 0.12);
+
+  /* Motion */
+  --ease-sage: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-sm: 240ms;
+  --duration-md: 400ms;
+  --duration-lg: 700ms;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--sage-text);
+  background: var(--sage-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Section B: Typography ---------- */
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-heading);
+  margin: 0;
+  font-weight: 600;
+  /* Fraunces variable axes: softness + ink-trap */
+  font-variation-settings: "SOFT" 50, "opsz" 144;
+}
+h1 { font-size: 60px; line-height: 1.08; letter-spacing: -0.01em; }
+h2 { font-size: 40px; line-height: 1.15; letter-spacing: -0.005em; }
+h3 { font-size: 24px; line-height: 1.3; font-weight: 500; }
+h4 { font-size: 20px; line-height: 1.4; font-weight: 500; }
+p  { margin: 0 0 var(--space-4); }
+.sage-lead { font-size: 19px; line-height: 1.55; }
+.sage-caption { font-size: 13px; line-height: 1.45; color: var(--sage-text-secondary); font-style: italic; }
+
+/* ---------- Section C: Link & Button ---------- */
+.sage-link {
+  color: var(--sage-sage-dark);
+  text-decoration: underline;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--sage-ink);
+  transition: color var(--duration-sm) var(--ease-sage), text-decoration-color var(--duration-sm);
+}
+.sage-link:hover {
+  color: var(--sage-sage-dark);
+  text-decoration-color: var(--sage-sage);
+}
+.sage-link::after { content: " \2192"; color: var(--sage-ink); }
+.sage-link--no-arrow::after { content: none; }
+
+/* Primary CTA is deep indigo — high contrast on cream. Sage green is reserved
+ * for decorative accents, illustrations, and progress bars, not for large
+ * text-on-color because sage (#97B077) on white only hits 2.4:1 contrast. */
+.sage-button {
+  display: inline-block;
+  padding: 14px 28px;
+  border-radius: var(--radius-pill);
+  background: var(--sage-ink);
+  color: #ffffff;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  transition: background var(--duration-sm) var(--ease-sage), transform var(--duration-sm);
+}
+.sage-button:hover {
+  background: #2b2e42;
+  transform: translateY(-1px);
+}
+.sage-button--ghost {
+  background: transparent;
+  color: var(--sage-ink);
+  border: 1px solid var(--sage-ink);
+}
+.sage-button--ghost:hover {
+  background: var(--sage-ink);
+  color: #ffffff;
+}
+/* Sage-green CTA — only use for secondary accents, never as the only CTA.
+ * Pair with bold white 15px+ text so we stay ≥ 3:1 (large-text AA). */
+.sage-button--sage {
+  background: var(--sage-sage-dark);
+  color: #ffffff;
+  font-weight: 700;
+}
+.sage-button--sage:hover { background: #5f7a49; }
+.sage-button--ink {
+  background: var(--sage-ink);
+  color: #ffffff;
+}
+.sage-button--ink:hover { background: #2b2e42; }
+
+/* ---------- Section D: Layout ---------- */
+.sage-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+}
+.sage-container--narrow { max-width: 720px; }
+.sage-container--wide { max-width: 1200px; }
+
+.sage-section { padding-block: var(--space-9); }
+.sage-section--subtle { background: var(--sage-bg-subtle); }
+.sage-section--dark {
+  background: var(--sage-text);
+  color: var(--sage-bg);
+}
+.sage-section--dark h1,
+.sage-section--dark h2,
+.sage-section--dark h3 { color: var(--sage-bg); }
+
+.sage-hero {
+  text-align: center;
+  padding-block: var(--space-10);
+}
+
+.sage-card {
+  background: var(--sage-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6);
+}
+.sage-card--subtle {
+  background: var(--sage-bg-subtle);
+  box-shadow: none;
+  border: 1px solid var(--sage-divider);
+}
+
+/* ---------- Section E: Stat ---------- */
+.sage-stat { text-align: center; }
+.sage-stat-number {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 72px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--sage-sage-dark);
+}
+.sage-stat-label {
+  display: block;
+  font-size: 14px;
+  color: var(--sage-text-secondary);
+  margin-top: var(--space-3);
+  font-style: italic;
+  max-width: 220px;
+  margin-inline: auto;
+}
+
+/* ---------- Section F: Nav ---------- */
+.sage-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 72px;
+  /* sage-tinted translucent: pale sage green at 88% over body cream.
+     Previously was warm-yellow rgba(255,242,223,...) which looked ember,
+     not sage — now carries the sage-green brand at the top of every page. */
+  background: rgba(212, 225, 184, 0.88);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid #c9d6a8;
+}
+.sage-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sage-nav-brand {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--sage-text);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.sage-nav a {
+  color: var(--sage-text);
+  font-size: 14px;
+  text-decoration: none;
+  margin-right: var(--space-5);
+  transition: color var(--duration-sm);
+}
+.sage-nav a.sage-button {
+  color: #ffffff;
+  text-decoration: none;
+}
+.sage-nav a:hover { color: var(--sage-sage-dark); }
+.sage-nav a.sage-button:hover { color: #ffffff; }
+
+/* ---------- Section G: Footer ---------- */
+.sage-footer {
+  background: var(--sage-bg-subtle);
+  padding-block: var(--space-8);
+  font-size: 13px;
+  color: var(--sage-text-secondary);
+  border-top: 1px solid var(--sage-divider);
+}
+.sage-footer-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-6);
+}
+.sage-footer-group h5 {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  color: var(--sage-text);
+  margin-bottom: var(--space-3);
+  font-weight: 600;
+}
+.sage-footer-group a {
+  display: block;
+  color: var(--sage-text-secondary);
+  text-decoration: none;
+  margin-bottom: var(--space-2);
+}
+.sage-footer-group a:hover {
+  color: var(--sage-sage-dark);
+  text-decoration: underline;
+}
+.sage-footer-legal {
+  max-width: 1200px;
+  margin: var(--space-7) auto 0;
+  padding: var(--space-5) var(--space-5) 0;
+  border-top: 1px solid var(--sage-divider);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* ---------- Section H: Badge / Quote / Divider / Banner ---------- */
+.sage-badge {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--sage-ink);
+  color: #ffffff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.sage-badge--ghost {
+  background: transparent;
+  color: var(--sage-ink);
+  border: 1px solid var(--sage-divider);
+  font-weight: 500;
+}
+/* Filled-sage badge exists but only for large pill labels — not small text. */
+.sage-badge--sage { background: var(--sage-sage-dark); color: #ffffff; font-weight: 700; }
+
+.sage-quote {
+  font-family: var(--font-heading);
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1.45;
+  color: var(--sage-text);
+  padding-left: 0;
+  max-width: 720px;
+  margin: var(--space-7) auto;
+  text-align: left;
+  position: relative;
+}
+.sage-quote::before {
+  content: "“";
+  position: absolute;
+  left: -0.6em;
+  top: -0.2em;
+  font-size: 4em;
+  line-height: 1;
+  color: var(--sage-ink);
+  font-family: var(--font-heading);
+}
+.sage-quote-cite {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  font-family: var(--font-body);
+  font-style: normal;
+  font-size: 14px;
+  color: var(--sage-text-secondary);
+}
+
+.sage-divider {
+  border: 0;
+  height: 1px;
+  background: var(--sage-divider);
+  margin: var(--space-8) 0;
+  position: relative;
+}
+.sage-divider--ornament {
+  text-align: center;
+  background: transparent;
+  height: auto;
+  border: 0;
+}
+.sage-divider--ornament::before {
+  content: "·  ·  ·";
+  color: var(--sage-ink);
+  letter-spacing: 0.5em;
+  font-size: 20px;
+}
+
+.sage-banner {
+  background: var(--sage-bg-subtle);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--sage-divider);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ---------- Section I: Forms ---------- */
+.sage-input, .sage-select, .sage-textarea {
+  width: 100%;
+  background: var(--sage-card);
+  border: 1px solid var(--sage-divider);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--sage-text);
+}
+.sage-input:focus, .sage-select:focus, .sage-textarea:focus {
+  outline: 2px solid var(--sage-sage);
+  outline-offset: 0;
+  border-color: transparent;
+}
+.sage-radio, .sage-checkbox {
+  accent-color: var(--sage-sage);
+  width: 18px;
+  height: 18px;
+}
+.sage-label {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sage-text);
+  margin-bottom: var(--space-2);
+}
+
+/* ---------- Section J: Tabs, Details, Code, Admonition ---------- */
+.sage-tabs {
+  display: flex;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--sage-divider);
+}
+.sage-tab {
+  background: transparent;
+  border: 0;
+  padding: var(--space-3) 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--sage-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color var(--duration-sm), border-bottom-color var(--duration-sm);
+}
+.sage-tab.is-active {
+  color: var(--sage-sage-dark);
+  border-bottom-color: var(--sage-ink);
+}
+
+.sage-details {
+  background: var(--sage-bg-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  margin: var(--space-3) 0;
+  border: 1px solid var(--sage-divider);
+}
+.sage-details summary {
+  cursor: pointer;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sage-details summary::after {
+  content: "+";
+  color: var(--sage-ink);
+  font-size: 20px;
+  font-weight: 300;
+  transition: transform var(--duration-sm);
+}
+.sage-details[open] summary::after { content: "−"; }
+
+.sage-code, pre.sage-code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--sage-text);
+  color: #f5e5c8;
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  overflow-x: auto;
+}
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--sage-bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--sage-sage-dark);
+}
+kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--sage-card);
+  border: 1px solid var(--sage-divider);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+mark { background: rgba(196, 148, 100, 0.32); color: inherit; }
+
+.sage-admonition {
+  background: var(--sage-card);
+  border-left: 4px solid var(--sage-ink);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: var(--space-5);
+  margin: var(--space-5) 0;
+}
+.sage-admonition h5 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 14px;
+  margin: 0 0 var(--space-2);
+  color: var(--sage-ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sage-admonition--warning { border-left-color: var(--sage-ink); }
+.sage-admonition--success h5 { color: #6b8e5a; }
+.sage-admonition--success { border-left-color: #6b8e5a; }
+.sage-admonition--danger h5 { color: var(--sage-danger); }
+.sage-admonition--danger { border-left-color: var(--sage-danger); }
+
+/* ---------- Section K: Breadcrumbs / Table / Reveal ---------- */
+.sage-breadcrumbs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--sage-text-secondary);
+}
+.sage-breadcrumbs li::after {
+  content: "/";
+  margin-left: var(--space-2);
+  color: var(--sage-divider);
+}
+.sage-breadcrumbs li:last-child::after { content: none; }
+.sage-breadcrumbs a { color: inherit; text-decoration: none; }
+.sage-breadcrumbs a:hover { color: var(--sage-sage-dark); }
+
+.sage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.sage-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--sage-bg-subtle);
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--sage-text);
+  border-bottom: 1px solid var(--sage-divider);
+}
+.sage-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--sage-divider);
+}
+.sage-table tr:hover td { background: rgba(196, 148, 100, 0.08); }
+
+.sage-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity var(--duration-lg) var(--ease-sage),
+    transform var(--duration-lg) var(--ease-sage);
+}
+.sage-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Section L: Responsive + a11y ----------
+ * Phone layout. The card grids that overflow at 375px live in each page's
+ * embedded <style> (.use-grid, .use-grid3, .feat-row, …); the collapse rules
+ * below override them at equal specificity via !important, so the rollout is
+ * CSS-only and reaches every page that links this sheet. Genuinely wide figures
+ * pan via an opt-in .sage-scroll wrapper (strategy A); hero product mocks
+ * scale to fit so the whole window stays visible. */
+@media (max-width: 768px) {
+  /* Type — fluid headings, 16px reading floor. !important so the per-page
+     inline font-sizes (style="font-size:96px" on hero headings) scale down
+     too — without it an inline size wins over this media query and overflows. */
+  h1 { font-size: clamp(32px, 8.6vw, 40px) !important; line-height: 1.14; }
+  h2 { font-size: clamp(25px, 6.4vw, 30px) !important; }
+  h3 { font-size: 20px !important; }
+  body { font-size: 16px; }
+  .sage-stat-number { font-size: clamp(40px, 12vw, 56px); }
+  .sage-quote { font-size: clamp(20px, 6vw, 24px); }
+
+  /* Sections + containers breathe less on a phone */
+  .sage-section { padding-block: var(--space-7); }
+  .sage-container, .sage-container--wide, .sage-container--narrow {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  /* Collapse page-local multi-column grids so nothing scrolls sideways. The
+     full class list is generated from every page's embedded <style>; a class
+     absent from a given page is simply inert. Content & label/value rows go to
+     one column; compact numeric strips stay two-up. */
+  .feat-grid, .feat-row, .use-grid, .use-grid3, .use-tile, .tier-grid, .ref-grid,
+  .member-grid, .team-grid, .canon-row, .test-row, .channel-row, .chord-grid,
+  .scenarios, .scenario, .post-grid, .pd-sibling__grid, .pd-use__grid,
+  .pd-sibling__row, .pd-spec__row, .faq-group, .faq-sum, .log-entry, .log-month,
+  .detail-row, .spec-row, .kbd-row, .lineup-row, .lineup-grid, .limit-item,
+  .craft-rule, .ship-rule, .quickstart, .palette-split, .overlap-grid, .two-col,
+  .featured, .cards-2, .comp-grid, .side-col, .support-grid, .pillar-spine,
+  .stat-strip, .glance-strip, .giant-stats, .cadence-stats, .pd-glance,
+  .stat-trio, .faq-stats, .kpi-row, .exec-strip, .status-grid, .pagination {
+    grid-template-columns: 1fr !important;
+  }
+  /* inline splits (style="grid-template-columns:2fr 3fr") collapse too */
+  [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .sage-footer-grid { grid-template-columns: repeat(2, 1fr); }
+  /* children must shrink, or their min-content re-widens the row */
+  [class*="grid"] > *, [class*="row"] > *, [class*="strip"] > *,
+  [class*="stat"] > *, [class*="glance"] > *, [class*="scenario"] > * { min-width: 0; }
+  /* long unbreakable tokens (file paths in <code>, URLs) wrap, not overflow */
+  code, kbd { overflow-wrap: anywhere; }
+
+  /* Nav links wrap instead of overflowing (no JS burger on this skill) */
+  .sage-nav-inner, .sage-nav-inner > div { flex-wrap: wrap; gap: var(--space-3); row-gap: var(--space-2); }
+
+  /* Opt-in pan wrapper for genuinely wide figures (strategy A): wrap the <svg>
+     in <div class="sage-scroll"> to keep a readable width and pan on a phone.
+     Hero product mocks scale-to-fit instead — the whole window stays visible,
+     and their own overflow:hidden (rounded corners) would fight a pan anyway. */
+  .sage-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sage-scroll > svg { min-width: 720px; }
+
+  /* Wide tables + code blocks pan inside their own box; table columns stay
+     aligned (min-width:max-content keeps display:table, parent does the scroll) */
+  :is(div, section, figure):has(> table) {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .cmp-table { min-width: -webkit-max-content; min-width: max-content; }
+  .sage-code { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  h1 { font-size: 48px; }
+  .sage-footer-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.sage-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sage-sage);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

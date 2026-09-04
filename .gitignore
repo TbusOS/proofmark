@@ -1,0 +1,13 @@
+node_modules/
+package-lock.json
+.env
+*.swp
+*.swo
+*~
+.DS_Store
+shot-*.png
+demo-shot.png
+shots/
+/.scratch/
+__pycache__/
+*.pyc

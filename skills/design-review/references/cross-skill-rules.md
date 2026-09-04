@@ -1,0 +1,466 @@
+# Cross-Skill Rules
+
+> 适用于 **所有 9 个 design skill**（anthropic / apple / ember / sage / glass / eclat / lectern / atelier / primer）的共通规则。
+> 每个 skill 的 `dos-and-donts.md` 负责**风格独有**的规则（调色板、字体、签名动作）；
+> 这份文件负责**跨风格的工艺底线**。evaluator 先读这份，再读对应 skill 的 dos-and-donts。
+
+---
+
+## A. 结构卫生（verify.py 强制）
+
+1. **零占位符**：产物里不得出现 `[hero]` / `[SVG]` / `[icon]` / `[placeholder]` / `[todo]` / `[tbd]` / `[fixme]` / `[<name>.icon]`。
+2. **DOCTYPE + viewport**：`<!doctype html>` + `<meta name="viewport" content="...">` 缺一不可。
+3. **容器 BEM**：modifier class（`--narrow` / `--wide` / `--hero`）必须和 base class 同时出现。只写 modifier = 丢失 `margin:0 auto`。
+4. **SVG 标签平衡**：`<svg>` 与 `</svg>` 数量一致。
+5. **类名必须定义**：每个 `class="{prefix}-*"` 在对应的 `assets/{skill}.css` 都要有定义，不得有幽灵 class。
+
+## B. 渲染工艺（visual-audit.mjs 强制）
+
+1. **CTA/徽章 contrast ≥ 4.5**：按钮、徽章、nav 链接在实际背景上的 WCAG 对比度；< 3 判 error，3–4.5 判 warn。
+2. **Hero 框图渲染宽度 ≥ 900px**（在 1440 视口下）：`figure[grid-column: 1 / -1] > svg` 实测 rect.width；不到就 warn。例外：作者明确用 `max-width + margin:0 auto` 居中限宽的 intentional 场景。
+3. **SVG `<text>` 渲染像素 ≥ 9px**：`effective_px = font_size * (rect.width / viewBox.width)`。小于 9 就 warn。**写源码时 font-size ≥ 9.5 作为缓冲**。
+4. **孤儿卡检测**：多列 grid 里 N-1 张是 `grid-column: 1 / -1` 的全行 hero 卡，剩 1 张不是且宽度 < 父容器 70% → warn。
+5. **满宽彩色带检测（saturated-band · known-bugs §1.27）**：渲染宽度 ≥ 300px 的 SVG 里，任一 rect 同时满足"HSL 饱和（s>0.25 且 l<0.85）+ 有效不透明度 ≥ 0.5 + 宽 ≥ 60% viewBox 宽 + 高 ≥ 24 + 面积 ≥ 8% viewBox" → warn。只抓 hue 饱和的"色带"；深色中性面板（终端/深色窗口 mock）和低饱和 tint 容器是合法模式。颜色做语义不做填充——tint 容器 + 色条 + 色点，纯色满填只给 ≤ 56px 元素。画图工艺全文见各 skill `references/diagram-craft.md`（含图密度合约：≥3 步流程必须画图、数字必须 stat/图表、>2 屏纯文字必须插视觉元素、每 1.5 屏 ≥ 1 个视觉元素）。
+6. **letterbox 检测（svg-letterbox · known-bugs §1.28）**：figure 内渲染宽 ≥ 300px 的 SVG，内容元素 client-rect union 的宽向填充率 < 72% 或高向 < 50% → warn（全幅背板剔除；`data-allow-letterbox` 逃生舱）。viewBox 紧贴内容，内容 bbox 距边 ≤ 24px——画布里的空白只会偷走字号。
+7. **密图窄容器检测（dense-diagram-cramped · known-bugs §1.29）**：figure 内 SVG `<text>` ≥ 20 且渲染宽 < 760px → warn。密图必须升容器档（anthropic 1200 wide / apple 1280 hero）或拆图，不准缩字号。注意 §B.3 的 tiny-text 检查 2026-06-11 起覆盖**所有** figure 内 SVG（渲染宽 ≥ 300、text ≥ 4），不再限 hero 行。
+8. **单色图反向检查（diagram-monochrome · known-bugs §1.30 · anthropic / ember / sage 生效，apple 豁免）**：figure 内工程图（节点 rect ≥ 4 且 text ≥ 6）的 fill/stroke 中 0 个饱和 hue（s > 0.25 且 0.15 < l < 0.85）→ warn。颜色必须在场：tint 不算 hue，在场感来自实心色点 / 徽章 / 色条 / 彩色连线。归属理由——anthropic：每图 ≥ 2 语义 hue 是文档合约 + critic 评审项（机器只抓 0 hue，存量单 hue git graph / timeline 合法）；ember：暖棕灰（#312520/#6b5a4f/#8a7564）饱和度低于 s > 0.25 线，登记为 hue 的是金焦点 #c49464，0 hue 意味着金焦点缺席或冷中性灰入侵，两者都是 dos-and-donts 违例；sage：绿 #97B077 是身份色，靛蓝墨 #393C54 饱和度不够不计入，0 hue 的工程图是灰线稿不是 sage。apple 豁免（无彩灰阶 + 蓝单焦点是身份，全灰图可以合法存在）。
+9. **长文无图检测（text-desert · known-bugs §1.31）**：视觉元素（svg / figure / img / table / blockquote / pre / stat / 卡片 grid 区）之间最大纵向空隙 > 2600px → warn。豁免：页高 < 1800、md-mirror 文档页（`.md-banner`）、`<body data-allow-text-desert>`。编辑合约仍是每 1.5 屏 ≥ 1 个视觉元素——机器检查只兜最严重的。
+
+## C. 视觉原创性（目前文档级，将来 design-critic 强制）
+
+1. **Lineup / skill grid 卡片**：每张都必须
+   - aspect-ratio: 1 或明确的比例
+   - 满版背景 / 独立视觉语言（产品截图、illustration、palette 预览、数据面板 …）
+   - **禁止** 72×72 细线图标居中在浅灰方块（像 wireframe）
+   - 叠加文字 contrast ≥ 4.5
+2. **Hero 框图**：
+   - viewBox 宽度 / container 宽度 ≥ 0.85（不被 padding 吞掉）
+   - 有明确的信息结构：stage labels（`01 · 02 · 03`）、对比色引导视线
+   - 颜色用该 skill 的 token，不引入陌生色
+   - 至少 1–2 个肌理细节（hairline 网格、柔和阴影、小装饰点），避免"ppt 感"
+
+## D. 代码质量
+
+1. 不写死 hex：能用 `var(--{skill}-*)` 就用 token。
+2. 不用 `transition: all`：只 transition 具体属性（opacity / transform / color）。
+3. 不要把衬线 display 字体用作正文（Instrument Serif / Lora 做 display + italic pull-quote，不做 body）。
+
+## E. SVG 规则(visual-audit 强制)
+
+1. **transform 之后先渲染确认 bbox**:`<text>` 加了 `rotate()` / `translate()` 之后,源码坐标和渲染位置脱节。**写完渲染一次,看实际 bounding box 有没有穿过别的元素**。静态扫描永远抓不到这类,必须眼睛或 playwright 看。
+2. **overlap 出现时的修法优先级**(**重要** —— 不要上来就删):
+   - **(a)** 先问**有没有设计意图**。如果这元素在传达一件其他元素不传达的事(例如 "REQUEST FLOWS DOWN" 声明信息流方向),它有意图,不该删。
+   - **(b)** **优先挪位置 / 换布局** —— 顶部横条带、扩 viewBox 给它专属一列、换成更短的记号(`↓ FLOW` 代替 "REQUEST · FLOWS · DOWN")、改方向(旋转 → 横置)。
+   - **(c)** 只在设计意图确实是冗余(其他元素已经表达了同一件事)时才**删**。删之前问 "这屏上还有谁传达这同一个意思?"
+   - 历史教训:2026-04-20 第一次抓到 rotated text overlap 时,我直接删了 3 个 demo 里的装饰文字。用户指出:这是最省事不是最好的路。后来改成"横着放在 stage labels 那一行,顶部中线",既保留意图又消除 overlap。
+3. **同 SVG 内任意两个 `<text>` 的 rendered rect 不应相交 ≥ 4×4 px**(svg-text-overlap check)。title + subtitle 垂直紧贴的 1-2px 叠加不算。
+4. **文字颜色不要和它所在 shape 的填充色接近**:文字 `fill` 和承载它的最小不透明 rect/circle/path 的 `fill` RGB 欧氏距离 ≥ 40(simple heuristic,见 known-bugs 1.9)。半透明叠加层(fill-opacity < 0.5)不算背景 —— 真正的背景在它底下。
+5. **SVG `<text>` 源码 `font-size` ≥ 11** 才能在 worst-case 0.84 scale 下仍 ≥ 9 渲染像素。
+
+## F. HTML 语义 + a11y(visual-audit 强制)
+
+1. **每页恰好一个 `<h1>`**(multiple-h1 error / no-h1 warn)。
+2. **不跳 heading 层级**:h1 → h3 (跳 h2) warn;footer / aside / nav 内的 h5 列标题是行业惯例,不算跳级。
+3. **`<img>` 必须有 `alt`**:装饰性用 `alt=""`,内容性用描述。
+4. **可见的 `<a>` 必须有文本 / `aria-label` / `title`**:空链接屏幕阅读器读不出。
+
+## I. 布局比例(visual-audit 强制 + 写之前自问)
+
+**问题模式**:等宽 grid(`repeat(3, 1fr)` / `repeat(4, 1fr)` 等)强行把内容拉到容器宽度的 1/N,但实际内容**不够填满**这个宽度 → 卡片看着"空心"、"拉伸"、"奇怪"。
+
+**visual-audit §10b hollow-card check**:任何等宽 grid 里,子卡 aspect > 1.8 且文本 < 180 字 → warn `hollow card`。
+
+**例外:stat-strip**。如果卡内有 ≥36px 的大字号(big number display),跳过 —— 这是指标卡(比如 `18,000+ writers`),稀疏文本是设计本意,不是 bug。
+
+**写之前的自问(rule)**:每次用等宽 grid 放卡时,检查三件事:
+
+1. **每张卡的内容能撑起这个宽度吗?** 3 行 + 1 段 + 1 小 code block 塞在 400px 宽里,大概率是空心。
+2. **卡的"权重"真的一样吗?** 如果其中一张是"推荐",其他是"替代",强行等宽等高**掩盖层级** → 用户分不清主次。改成 **1 hero + (N-1) 小卡** 或 **主区 + 侧栏**。
+3. **ABC / 123 这种没有语义的标签是装饰还是信息?** 如果只是"需要 3 个字母",就是装饰 → 删。有序号语义(Phase 01 / 02 / 03)才留。
+
+**正确布局模板**:
+
+```
+[ 主推方法 — 全宽 hero card (60% 文字说明 + 40% 代码) ]
+           ↓
+[ 替代方法 A — compact ]  [ 替代方法 B — compact ]
+```
+
+**历史**:2026-04-20 INSTALL 的 "三种方式 abc" 就是等宽 3-col 横排太宽,用户指出"一长排太宽,看着很奇怪"。scaffold 原本没 hollow-card check,现在加了。同时规则里写清"层级式 > 等权式"。
+
+### §I 追加 · 装饰 vs 比例 之争(2026-04-22 learning-loop 命中)
+
+**再自问一条**:这个等宽 grid 里,有没有一张卡靠"额外装饰"(粗 border / "Now" pill / 颜色高亮)标出它是推荐项? 有 → **grid 比例和装饰在打架**。
+
+- 装饰在做**本该由 grid 比例做的工作**(建立视觉层级)。
+- 读者先扫宽度找主项,找不到,再退而扫装饰 —— 一次额外认知负担。
+- 修:改列宽 scale(`0.9fr 1.15fr 0.9fr` / `1fr 1.3fr 1fr`),或切成 "1 hero + (N-1) alternatives",或分成两段(主推段 + 替代段)。
+
+**机器 check**:`visual-audit.mjs` 的 `recommended-card-equal-grid` 做启发式提示 —— `repeat(N, 1fr)` 里发现唯一一张卡有显著 border(≥1.5px + chromatic) → warn。启发式会有假阳性,仅作提示。known-bugs 1.19。
+
+**历史**:2026-04-22 HARNESS-ROADMAP 一页命中两处 —— `#status` 中间卡 `border:2px solid orange` + 等宽 3-col;`#components` 8 张卡重要性不均 + 2×4 等宽。solo critic 给 93 没重点提,composition 专家(multi-critic 组件 05)给 86 各记一笔。
+
+### §I 追加 · "第 1 列更宽"不是 hero 手段(2026-04-22 learning-loop 命中)
+
+在 N 列 grid 里放"hero + peers"时,**位置 × 比例 一起决定读法**:
+
+| pattern | 读作 | 评价 |
+|---|---|---|
+| 第 1 列 `1.4fr`,2/3 列 `1fr` | "整行重心偏左 / lopsided" | ❌ 别用 |
+| 第 2 列 `1.2fr`,1/3 列 `1fr` | "中间被抬高 / 对称 hero" | ✅ OK |
+| 第 1 列独占整行 + 下一行 2 peers | "hero 明确 + peers 平等" | ✅ 首选 |
+| 第 1 列宽 + 深底色 + 粗 accent border | "hero 是不同材质" | ⚠️ 救场可行,别常规用 |
+
+**再自问一条**(加在 §I 已有的三问之后):
+
+4. **如果我要放大一列当 hero,这列在第 1 位吗?**
+   - 在第 1 位 → 不要拉宽它。独占全行(`grid-column: 1 / -1`),或改放中间,或用深底/border 当锚。
+   - 在中间 → 拉宽 OK(两侧 peer 对称兜住)。
+   - 在最后 → 别拉宽(读成"尾巴翘起")。
+
+**机器 check**:`visual-audit.mjs` 的 `asymmetric-first-col-hero`(3-col 触发,ratio ≥ 1.2,有 anchored-hero 豁免)。known-bugs 1.21。
+
+**历史**:2026-04-22 `demos/gated-dual-clone/index.html` 三道安全检查。作者按 composition critic 建议把 Gate A 从 `1fr 1fr 1fr` 改成 `1.4fr 1fr 1fr`,AI 评审给 91 分,用户一眼看出"还是歪的,偏左"。修法:改 `1fr 1fr` + `Gate A grid-column: 1 / -1`。composition critic subagent 只在 info-level 提了"窄视口会压缩" —— taste-level 的失衡被漏。
+
+## L. 完整评审流程(每次生成新页面必走)
+
+生成器生成任何 HTML 页之前、之中、之后都走这个流程:
+
+### 生成**前**(plan 阶段)
+
+```bash
+bin/design-review --plan --skill=<skill> --page=<type>
+```
+
+script 输出一份 sprint-contract md,必含:
+- 要读的 4 个文件(canonical.html + canonical.md + cross-skill-rules +
+  dos-and-donts)
+- 本页的结构 MUST(从 canonical.md 提)
+- brand-presence / italic / cross-skill-smell 的 MUST
+- 四道机械检查的命令(verify.py → visual-audit.mjs → axe-audit.mjs →
+  screenshot.mjs;critic 在四道之外)
+
+**生成器把这份 contract 读完再动手**。不读 canonical 就写 = 又一次让读者
+push back。
+
+### 生成**后**(review 阶段 —— 四道机械检查 + critic)
+
+```bash
+bin/design-review --critic <page.html>
+```
+
+四道机械检查依次跑(检查模型的唯一定义在 `design-review/SKILL.md`):
+
+1. **verify.py** — 结构(占位符、DOCTYPE、BEM、SVG 平衡、class 定义、
+   bilingual §G)
+2. **visual-audit.mjs** — 渲染 + Playwright pngjs:
+   - contrast / hero 宽 / SVG 字号 / 孤儿 figure / text overlap /
+     多 h1 / heading 跳级 / img-alt / link-text / hollow card / SVG
+     同色
+   - **brand-presence** (§K) · **italic-overuse** (§J) ·
+     **cross-skill-smell** (§K)
+3. **axe-audit.mjs** — 可达性(axe-core;color-contrast、link-name、
+   aria-prohibited-attr、svg-img-alt 为阻断项)
+4. **screenshot.mjs** — 全页 PNG 存 shots/
+
+四道之外,`--critic` 再跑 **critic.mjs** — LLM 口味评审(写一份 critic
+prompt md,喂给 Claude;Claude Code 环境下直接
+Task(subagent_type='design-critic'))。输出 0-100 分 + 7 维度分解 +
+具体 issues + narrative。
+
+任一 error 整个失败;warn 要人判定是否放行。critic 得分 < 75 必修。
+
+### 自回归保底(self-regression)
+
+每次 canonical 升级,canonical 自己跑 critic 必须 ≥ 90 分。如果达不到,
+说明 rubric 偏离了 canonical 代表的那种"好",是 rubric 错,不是 canonical 错。
+
+### 规则总览(A-M 索引)
+
+| § | 范围 | 机器化 | 规则要点 |
+|---|---|---|---|
+| A | 结构 | verify.py | 占位符/DOCTYPE/BEM/SVG/class 定义 |
+| B | 渲染 | visual-audit.mjs | contrast/hero 宽/SVG 字号/文字 bbox 不重叠(§1.25)/SVG shape 不压字(§1.26) |
+| C | 原创性 | 文档级 | lineup 卡 / hero 框图反 AI slop |
+| D | 代码质量 | 文档级 | 禁写死 hex / `transition: all` |
+| E | SVG | visual-audit.mjs | 先渲染确认 bbox / 删是最后一招 / 同色警告 |
+| F | a11y | visual-audit.mjs | 单 h1 / heading 跳 / alt / link text |
+| G | 双语 | verify.py | 公开站页必须 lang-toggle + lang-en/zh |
+| H | 中文字体 | 文档级 | Noto Serif SC + Noto Sans SC(apple 例外) |
+| I | 布局比例 | visual-audit.mjs §10b | hollow card + 1 hero + N 替代 |
+| J | italic 纪律 | visual-audit.mjs italic-overuse | italic 仅做强调 |
+| K | 品牌可视 + 串味 | visual-audit.mjs brand-presence / smell | 本风格 vs 跨风格 |
+| L | 评审流程 | bin/design-review | plan → write → 四道检查 → self-regression |
+| M | self-diff note | verify.py | canonical 必须 embed HTML 注释块 · critic 的评审靶子 |
+
+---
+
+## K. 品牌可视性 + 串味(visual-audit 强制)
+
+每个 skill 的页面**第一眼必须能被认出**属于哪个 skill。`visual-audit.mjs` 有两层机器 check:
+
+1. **no-brand-presence**:top 1440×500 像素区里,该 skill 的 signature 色覆盖率 ≥ 阈值。
+   - anthropic 橙 ≥ 0.4%(canonicals 实测 0.5-0.9%)
+   - apple 蓝 ≥ 0.02%(apple 极简,低阈值)
+   - ember 金 ≥ 0.01%(金色作 hairline,小剂量)
+   - sage 绿 ≥ 1.5%(sage 必须 carry 绿色身份 —— nav band 实现)
+   - glass aurora cyan ≥ 0.2%(只算实心 cyan —— eyebrow/nav CTA/hairline 三件套;blob 混进藏青底不计;只在 dark 主题检,light 是变体不是正典)
+   - eclat flare ≥ 0.002%(暗调影厅里只有 CTA 和 live 圆点是饱和前景,只抓"完全没有")
+   - lectern navy ≥ 0.02%(深蓝方块 + kicker + 议程编号在顶区扛住身份)
+   - atelier rose ≥ 0.06%(玫红活在渐变圆球 / 字标 / 计量条 / 活动标签线上 —— 件小但处处有)
+   - primer violet ≥ 0.485%(#7a5cd6 活在超大圆号数字、比喻卡边框、hero 主插画上。阈值 2026-08-24
+     实测标定:三张 canonical 的顶区 1440×500 紫覆盖率分别是 concept 0.97% / process 1.5% /
+     compare 1.93%,取最小值的一半 = 0.485%,高于 0.2% 的地板,所以就用这个值)
+   - 实现:Playwright 截图 → pngjs 像素距匹配(tolerance 55,兜住 antialiasing)
+2. **cross-skill-smell**:可见元素的 computed font-family 第一项 / color / bg / fill,若匹配禁忌清单(别 skill 的 signature),warn 一次。
+   - sage 禁忌:Fraunces / Poppins / Lora / Space Grotesk / 金色 #c49464 / 橙 #d97757 / glass cyan #22D3EE
+   - ember 禁忌:Instrument Serif / Poppins / Lora / Space Grotesk / sage 绿 / apple 蓝 / glass cyan
+   - apple 禁忌:Fraunces / Instrument Serif / Poppins / Lora / Space Grotesk / 橙 / 金 / sage 绿 / glass cyan
+   - anthropic 禁忌:Fraunces / Instrument Serif / Space Grotesk / apple 蓝 / sage 绿 / 金 / glass cyan
+   - glass 禁忌:Fraunces / Instrument Serif / Poppins / Lora / 橙 / apple 蓝 / 金 / sage 绿(glass 的 violet/pink 不进禁忌表 —— 它们是 glass 自己的背景色,但在 glass 页面上前景即违例,见 glass dos-and-donts)
+   - eclat 禁忌:Fraunces / Instrument Serif / Lora / Poppins / Space Grotesk / apple 蓝 / sage 绿 / ember 金 / glass cyan(**anthropic 橙没有列进去**。原写"eclat 自己的 flare-soft #ff7a4d 落在 #d97757 的 TOL 55 内",按的是像素匹配器;实测欧氏 **39.4**,阈值 22,并不会误伤 —— 这项豁免其实不必要,撤掉它是行为改动,另开一项处理)
+   - lectern 禁忌:Fraunces / Instrument Serif / Lora / Poppins / Space Grotesk / anthropic 橙 / ember 金 / sage 绿 / glass cyan(**apple 蓝没有列进去**。原写"图表蓝会被自己的禁忌表误伤";实测最近的图表蓝 #2f5bb0 对 apple 蓝 #0071E3 是欧氏 **72.8**,阈值 22 —— 同样不必要,同一项跟进里处理)
+   - atelier 禁忌:Fraunces / Instrument Serif / Lora / Poppins / Space Grotesk / apple 蓝 / sage 绿 / ember 金 / glass cyan / lectern navy(**anthropic 橙没有列进去**。原写"珊瑚 #F5854F 在 TOL 55 内";实测欧氏 **32.3**,阈值 22 —— 同 eclat,不必要,同一项跟进)
+   - primer 禁忌:Fraunces / Instrument Serif / Poppins / Lora / Space Grotesk / anthropic 橙 / apple 蓝 / glass cyan / eclat flare / atelier rose。
+     **ember 金 / sage 绿 / lectern navy 三项没有列进去,同样不是因为会误报。** spec §4.1 原来的理由
+     (马克笔黄压墨字的抗锯齿像素、绿勾与白底的混色)说的是**像素**现象,而这张清单喂的是串味检查 ——
+     它读 computed color、按欧氏 < 22 判命中,混出来的像素它根本看不到。那段推理已撤回。
+     2026-08-25 按真匹配器实测:ember 金 93.2(对马克笔黄 #ffd23f)· sage 绿 94.3(对 #3aa66b)·
+     lectern #1d3a6e 43.3(对正文墨 #243244)· #2f5bb0 54.3(对紫墨 #5b3fbf),全部远在 22 之外。
+     四项都可以安全列进去,加进去是行为改动,和上面三条并作同一项跟进。
+
+**fix playbook**:
+- brand 不可见 → nav 给品牌 tint 背景,hero 加品牌色 kicker,CTA 用品牌色
+- 串味 → 换回本 skill 的 token / 字体栈;不要偷别人的 snippet
+
+**历史**:2026-04-21 sage nav 用 ember 暖米(跨味)+ sage 绿不在 top 可见,两类坑一起命中;sage/ember landing 第一版 Fraunces/Instrument Serif italic 铺满(也是字体 signature 错用)。机器化后同类 bug 再犯即抓。
+
+## J. Italic 是强调,不是默认(写稿前自检)
+
+当 display 字体支持 italic(Fraunces / Instrument Serif / Lora italic),italic 必须作为**强调**出现,不是每个 h1/h2/h3 的默认样式。
+
+**允许 italic 的场景**(earned):
+- Pull-quote(`blockquote` / `.ember-quote` / dark-band quote)
+- Tagline / 副标(已有更大的名字在上面,italic 做柔化陪衬,如 `.tier-card__tagline`)
+- 一个 heading 里的**单个强调词**(比如 `<em>by hand</em>` / `<em>to think</em>`)
+- 品牌 quote mark / 单独装饰 run
+
+**禁止** blanket italic:
+- 整页每个 h1 / h2 / h3 都是 italic
+- 每张卡片标题 + 每个定价档名 + 每条 FAQ 问题同时都是 italic
+- 长段落正文(CJK 没有真 italic;英文长段落可读性差)
+
+**为什么**:真正的 editorial 设计(Kinfolk / Aesop / 文学期刊)一次只让一个东西是 italic —— 一条 pull-quote,或者一个 tagline,或者一个词。满屏 italic 就不是排版,是视觉噪音。相比 apple / anthropic landing(标题都是 roman,italic 只在 pull-quote)的精致度,italic-everywhere 看起来是在用样式代替层级。
+
+**正确写法**:
+- 所有 heading 默认用字体的**正体**(roman upright)。
+  - Fraunces 400 / 500 / 600 roman 做 h1-h3。
+  - Instrument Serif 400 roman(它的正体本身就够优雅)。
+  - Lora italic **只** 给 pull-quote,不给 h1。
+- Italic 靠上面四条之一挣来。
+- 如果去掉 italic 后标题感觉"太平",说明层级在靠 italic 当拐杖 —— 改 size / spacing / contrast,不是加回 italic。
+
+**历史**:2026-04-21 写 ember + sage landing 时,我把 Fraunces / Instrument Serif 的 italic 铺在每个 h1/h2/h3/feat-title/use-tile h3 上,用户 push back:"另外两个风格的字体为什么很多斜体,你不觉得不好看吗?相比apple和anthropic的字体以及布局差很多"。修法:全部 heading 改 roman,italic 只留在:
+- `.pull-quote-dark blockquote`
+- 一个 hero 里的 `<em>` accent word
+- tier tagline(ember pricing)
+
+现在锁进规则,也让 pricing/docs-home/后续 canonical 都守。
+
+## H. Chinese font stack(每 skill fonts.css 强制)
+
+每个 design skill 的 `assets/fonts.css` 必须包含中文字体导入,配对规则如下:
+
+| 英文字体类 | 对应中文 | 配对逻辑 |
+|---|---|---|
+| Lora / Fraunces / Instrument Serif(editorial 衬线) | **Noto Serif SC** | 中英都是 serif,书卷气一致 |
+| Poppins / Inter / Space Grotesk(display / body sans) | **Noto Sans SC** | 中英都是 sans,几何一致 |
+| Fredoka / Nunito(圆体 display,primer)| **Noto Sans SC** | 圆几何 sans 在中文侧没有对应的圆体开源字重可用,退到同为 sans 的 Noto Sans SC:字形骨架一致,只是失掉圆头。Fredoka **完全没有 CJK 覆盖**,所以 zh span 里的每个大标题实际都由 Noto Sans SC 排 —— 这是预期行为,不是 fallback 事故 |
+| IBM Plex Mono / JetBrains Mono(code) | `monospace` fallback | CJK 等宽字稀有,浏览器默认即可 |
+
+**apple-design 例外**:系统原生 PingFang SC 是 Apple 自己的中文字体设计,和 SF Pro 原装配对,**不改**。只给 non-Apple 平台加 Noto Sans SC fallback。
+
+**实现模板**(每 skill 的 fonts.css `@import`):
+```css
+@import url('https://fonts.googleapis.com/css2?
+  family=<主英文字体>&
+  family=Noto+Serif+SC:wght@400;500;600;700&
+  family=Noto+Sans+SC:wght@400;500;600&
+  display=swap');
+```
+
+**html[data-lang="zh"] 规则**(每张双语 HTML 的 `<style>` 或主 CSS):
+```css
+html[data-lang="zh"] body,
+html[data-lang="zh"] p,
+html[data-lang="zh"] li,
+html[data-lang="zh"] .<skill>-quote,
+html[data-lang="zh"] .<reading-elements> {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "PingFang SC", serif;
+  font-style: normal;  /* CJK 无真 italic,强制消掉英文侧的 italic */
+}
+html[data-lang="zh"] h1,
+html[data-lang="zh"] h2,
+html[data-lang="zh"] h3,
+html[data-lang="zh"] .<skill>-badge {
+  font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+}
+```
+
+**为什么锁死这个栈**:
+- Noto 系列是 Google + Adobe 合作的泛语言项目,中文 glyph 覆盖 18,000+ 字,editorial-grade 品质
+- Source Han 同源(一样的 glyph 数据,不同品牌)作第一 fallback
+- PingFang SC 作 Apple 系统保底
+- 以后新 skill 加进来 **不能用** `"PingFang SC"` 当单独主字体(那是 2010 年代 web 默认,看得出懒)
+
+**历史**:2026-04-20 写 canonical 时默认用 PingFang 系统栈,用户 push back ("中文字体要选个好看的"),改为 Noto Serif SC / Noto Sans SC 配对栈。现在锁进规则,不再走回老路。
+
+## G. 公开站页必须中英双语(verify.py 强制)
+
+**规则**:任何在 `docs/` 或 `skills/<style>/references/canonical/` 下的 HTML,都会被 GitHub Pages 发布到 `doc.tbusos.com/sky-skills/`(公开站的一部分)。这些页面 **必须** 支持中英切换,理由:
+
+1. 主站 `index.html` 有切换按钮 —— 用户点进 docs 或 canonical 后,切换突然消失 → UX 断裂。
+2. 9 个 design skill 的 SKILL.md TRIGGER 同时列出中英关键词(sage 风格 / sage style 等),站点自己得 match。
+3. 我的中文母语用户在 sky-skills 是一等公民,不是 i18n afterthought。
+
+**实现方式**(所有 canonical / docs HTML 遵循)—— 复用 roadmap.html 的模板:
+
+```html
+<html data-lang="en">  <!-- JS 会替换为读取的 localStorage 或 navigator.language -->
+<style>
+  html[data-lang="en"] .lang-zh { display: none !important; }
+  html[data-lang="zh"] .lang-en { display: none !important; }
+  /* 中文字体按 §H 规则:Noto Serif SC 做 editorial body,Noto Sans SC 做 display */
+  html[data-lang="zh"] body, html[data-lang="zh"] p, html[data-lang="zh"] li {
+    font-family: "Noto Serif SC", "Source Han Serif SC", "PingFang SC", serif;
+    font-style: normal;
+  }
+</style>
+
+<!-- nav 含 toggle 按钮 -->
+<button type="button" class="lang-toggle" aria-label="Switch language">中 / EN</button>
+
+<!-- 所有 user-facing 文本都成对包 spans -->
+<h1>
+  <span class="lang-en">Simple writing. Honest pricing.</span>
+  <span class="lang-zh">写作,简单。定价,诚实。</span>
+</h1>
+
+<!-- script in <body> 末尾 handle 切换 + localStorage -->
+```
+
+**verify.py 强制**:检测 public path 下的 HTML 若缺 lang-toggle / lang-en / lang-zh 任一标记,直接 fail。
+
+**内部单语豁免**:如果某份 HTML 虽然放在 `docs/` 下但**不面向外部发布**(例如团队内部中文工程 memo、只给中文同事看的分析文档),可以显式加 `--allow-monolingual`(别名 `--internal`)关掉这条检查:
+
+```bash
+python3 skills/design-review/scripts/verify.py --allow-monolingual <path/to/internal-memo.html>
+```
+
+豁免是**按调用传参**,不是文件属性 —— 每次跑都要显式写这个 flag,防止 CI / pre-commit 默认静默走双语豁免路径。"对外发布要双语"仍是默认立场。
+
+**历史教训**:2026-04-20 写 5 张 canonical 时,直接英文写了 —— 用户 push back。现在写进规则并机器化 check。内部中文工程 memo 另加 `--allow-monolingual` 豁免,不牺牲对外站点的双语保证。
+
+---
+
+## M. Generator self-diff note(每张 canonical 强制 · HARNESS-ROADMAP Phase 03)
+
+**规则**:任何 canonical HTML(路径含 `/references/canonical/`)**必须**在 `</body>` 前 embed 一个 `design-review:self-diff v1` HTML 注释块,列出作者本次生成时做的 5-7 条关键设计决策 + 已知 trade-offs。critic 和下一个作者读这个 note 知道"这张 canonical 为什么长这样",而不是靠感觉反推。
+
+### 为什么强制(Anthropic harness-design 原则)
+
+generator 写完 HTML 天然不会自然说出"我当时选了 X 因为 Y"。没有 self-diff:
+- critic 只能凭感觉评,抓不住作者意图
+- 下一个作者 port 到另一个 skill 时,要花时间逆向推理作者 intent
+- 争议点("为什么第一列宽 1.4fr")没有作者当时给的理由,讨论退化为偏好战
+
+self-diff 强制让作者在交付时把"选择 + 理由"落盘,给所有下游读者一个靶子。
+
+### Contract · 必须包含的字段
+
+```html
+<!-- design-review:self-diff v1
+Skill: <anthropic | apple | ember | sage | glass | eclat | lectern | atelier | primer>
+Page-type: <landing | pricing | docs-home | comparison | feature-deep | blog | product | team | faq | changelog>
+Created: <YYYY-MM-DD>
+
+Decisions (N · 至少 3 条,推荐 5-7):
+1. [<short-id>] chose "<choice>" over "<alternative>". Because: <one-line reason>
+2. [<short-id>] chose "<choice>" over "<alternative>". Because: <one-line reason>
+...
+
+Known trade-offs:
+- <constraint / concession 1>
+- <constraint / concession 2>
+(如果确实 0 trade-off · 写 "None — every canonical decision was free of trade-off" · 且准备被 critic 追问为什么)
+
+/design-review:self-diff -->
+```
+
+### 格式规则(机器 + 人双读)
+
+- 外层用 HTML 注释 `<!-- ... -->`(浏览器不渲染 · critic LLM 直接当纯文本读)
+- 开头第一行必须是 `design-review:self-diff v1`(v1 是 schema 版本 · 未来换字段就升 v2 · verify.py 按版本号分别解析)
+- 闭合前最后一行必须是 `/design-review:self-diff`
+- `Decisions` 段 **至少 3 条**(机器 check);每条遵循 `[id] chose "A" over "B". Because: C.` 三段
+- `Known trade-offs` 段**必须存在**(内容可以是 `None — ...`,但段头不能缺)
+- placement · `</body>` 前,排在所有 `<script>` 之后(不影响 DOM)
+
+### verify.py 机器 check
+
+canonical 路径下的 HTML(`/references/canonical/*.html`)必须存在合规的 self-diff 块。缺失或字段不全 → fail。详见 `known-bugs.md §1.23`。
+
+### 怎么写 decision(范例)
+
+**好** · 具体 · 可被 critic 评:
+```
+3. [pillars] chose "two pillars of equal weight and equal bullet count" over "asymmetric pillars (us = 6 bullets, them = 2)". Because: asymmetric pillar lengths signal propaganda; equal pillars let the trade-off read as honest.
+```
+
+**差** · 模糊 · 评不动:
+```
+3. [pillars] chose "nice pillars". Because: looked good.
+```
+
+decision 的 `Because` 必须回答"为什么选 A 不选 B",不是"A 的优点"。作者必须明确写出**替代方案**(`over "B"`)才有评审价值 —— 没替代就没取舍,没取舍就没决策。
+
+### 和 canonical.md 的分工
+
+| 文件 | 读者 | 内容 |
+|---|---|---|
+| `.md`(大文档) | **人** · 下一个作者 / 港到其他 skill 的实现者 | 完整 design-decisions + typography 规则 + don'ts + port 指引 |
+| self-diff note | **critic LLM** + 匆忙读者 | 5-7 条浓缩决策 + trade-offs · "这一实例为什么长这样" |
+
+self-diff 不是 .md 的复制 —— 它是**单实例的自述**。同一 page-type 的 anthropic canonical 和 apple canonical 会共享 .md 里的大部分 decisions,但各自 self-diff 会讲自己那个实例的具体取舍(比如 ember 版选了 4-col 而不是 3-col 的理由)。
+
+### 历史教训
+
+2026-04-24 前 13 张 canonical 全部缺 self-diff note。Phase 03 一直挂着 "Partly done",理由就是 self-diff 没强制。补完 + verify.py 机器化之后,Phase 03 → Done。
+
+---
+
+## N. 颜色对比度四条铁律(axe-audit 强制 · 2026-08-14 从 1023 个实测违规里提炼)
+
+写任何 `color:` 之前对照这四条 —— 全仓 1013 个 color-contrast 违规**全部**落进这四类,
+没有第五类:
+
+1. **muted 不叠 opacity。** token 本身就是降调;在 `--*-text-secondary` 上再叠
+   `opacity:0.4-0.65`,合成后 1.85-3.04。整卡"coming soon"淡化只淡预览图,不淡文字。
+2. **品牌色不当文字。** sage 绿 2.26 / anthropic 橙 2.66 / ember 金 2.18 当 `color:` 全不过。
+   每个品牌色配一个 `-ink` 深变体给文字;**填充保持原值**(品牌检查靠它匹配)。
+   按钮底允许在品牌检查 TOL 55 内加深(实例:`--anth-cta` #B85C3D,距品牌橙 50)。
+3. **判断色按"自己的 12% chip"取值,不按白底。** 状态药丸 = 判断色文字压在自己的淡 chip 上,
+   那是它见过的最难的底。lectern teal 白底 4.51 / 自己 chip 3.97。
+4. **暗底用亮 token。** 暗 pre / 引用带 / 页脚上,亮色主题的深 muted 只有 1.76-3.19;
+   过 AA 的恰是亮色那一侧。**批量替换颜色后必须重跑 axe** —— sage / ember / apple 的
+   暗代码块在同一轮里被同一把全局替换连踩三次。
+
+机器检查:`axe-audit.mjs` 的 `color-contrast` 已是阻塞级。晋升按 skill 实测,
+但 2026-08-14 那次清账**每页只量了一个主题**,glass 的 light 主题从来没被量到,
+曾带着 84 处 color-contrast 欠账,**2026-08-27 已在 glass CSS 的 token 层还清**
+(known-bugs §6.6),现在七页 × 两主题实测 0 违规。本节是"写的时候别犯",机械检查是"犯了拦住"。
+
+## 出坑以后
+
+任何一次 evaluator 抓到的新 bug 类，都要走 `known-bugs.md` 末尾的"新 bug 类处置流程"。
+这个 repo 的规则是：**同一个问题不该被抓两次**。

@@ -1,0 +1,65 @@
+# Ember Do / Don't
+
+> 这个文档既是美学指引，也是 **"这些坑我们已经踩过了"** 的防御清单。
+> 每条 Don't 旁边都有一句"Why"——如果不懂 Why，就不要删掉它。
+
+## ✅ Do
+
+- 暖米白 `#fff2df` 底 + 深巧克力 `#312520` 文字
+- 标题用 Fraunces 衬线（SOFT=50, opsz=144 软化）
+- 正文用 Inter，17px / 1.6 舒适阅读
+- CTA 用实心棕 `#492d22` 胶囊 + **纯白字（不是 cream）**
+- 金色 `#c49464` 作点缀（链接下划线 / 引号 / 卡片边）
+- pull-quote 左侧大号引号 + Fraunces italic
+- 卡片用纯白 `#ffffff`（与米底拉开对比）
+- 分隔用 `.ember-divider--ornament`（· · · 金色三点）提编辑感
+- 用 `var(--ember-*)` token，不写死 hex
+
+## ❌ Don't — 每条都带 Why
+
+| Don't | Why（过去踩过的坑） |
+|---|---|
+| 冷蓝 / 冷灰 | 破坏暖调 |
+| 霓虹 / 彩虹 / 紫色渐变 | 不匹配手工感 |
+| 标题用无衬线 | 失去手工感，那是 apple-design 的领地 |
+| 正文用衬线 | 长文阅读疲劳，Inter 是正文 |
+| 直角矩形无圆角 | ember 偏柔和圆角 |
+| `transition: all` | 性能差 + 视觉跳动。只 transition 具体属性 |
+| Dark mode | ember 只活在暖亮环境 |
+| 把 `[hero]` / `[SVG]` / `[placeholder]` 留在产物里 | 上线即暴露空白格子。verify.py 会扫 |
+| `class="ember-container--narrow"` 只写 modifier 不带 base | base 提供 `margin: 0 auto`，modifier 只覆盖 max-width。单独写 modifier → 容器贴左。**必须** `class="ember-container ember-container--narrow"` |
+| `.ember-button` 的 color 给 `var(--ember-bg)` 即 cream | cream 在深棕上对比度 ~1.2，几乎看不见。**必须** `color: #ffffff` |
+| 在 nav 里的按钮没有更高特异性选择器 | `.ember-nav a { color: var(--ember-text); }` 会覆盖 `.ember-button` 的 color。**必须** 额外写 `.ember-nav a.ember-button { color:#ffffff; }` |
+| hero 框图 figure 用 `padding: var(--space-7)` | 吞掉 SVG 宽度。用 `var(--space-5) var(--space-6)` |
+| hero 框图 里 font-size="8" 这种小字 | 渲染下来 <9px 看不清。最小 font-size 给 10 |
+| 多列网格里一张卡孤单独占一行左半边 | 视觉断裂。要么 `grid-column: 1 / -1` 居中 SVG，要么配对另一张 1 列卡 |
+| lineup 卡只塞一个细线小图标居中 | 像 wireframe。做满版 illustration tile |
+| 双语 stat strip 的共享数字带英文单位（`48h`）而 zh label 以"小时内…"开头 | zh 模式读出 "48h 小时" 单位重复（2026-06-13 faq 实抓）。数字也拆 lang spans：`<span class="lang-en">48h</span><span class="lang-zh">48</span>`。**known-bugs 1.41** |
+| SVG 里细描边连线穿过 `<text>` 标签 | 1.8px 的 path 横穿三个标签 = 删除线效果（2026-06-13 team 页实抓，三个 overlap 机械检查都看不见细描边）。连线绕开文字 bbox，或给文字让出线带。**known-bugs 1.43** |
+| changelog 宣称的统计（median gap / 版本号）不从页内数据重算 | 宣称 median 14 天，按页内日期算是 25 天 —— 读者自己能算出来，一处失实全页失信（2026-06-13 实抓）。任何可从页内导出的数字（中位数 / 计数 / 总和 / 版本号）发布前重算一遍。**known-bugs 1.35** |
+| 文本容器写死 `height` / `position:absolute` 摆文字 / 负 margin 拉文字 | 文字重叠三大来源(2026-07-06 用户反馈跨美学反复出现)。固定高换 `min-height`;绝对定位只给角标且测过双语两种长度;负 margin 改父容器 gap。重叠 ≥40% 且 ≥80px² 现在是 **error** 直接 block。**known-bugs 1.25 两档升级** |
+| 整页所有区块套同一个窄容器(或自定义 max-width < 640) | 1440 屏左右大片死空白,内容挤成一条(2026-07-06 用户反馈「左右留白太多,中间的字都挤在了一起」)。窄列只给纯 prose,表格/figure/grid 用 `.ember-container--wide`;同页混用容器档位是正常的。`narrow-content-column` 兜底。**known-bugs 1.44** |
+| 单个 `<p>` 写 15 行以上 / 连续 4+ 长段落中间无结构分隔 | 文字墙(2026-07-06 用户反馈「太多文字没有分段落…阅读不美观」)。单段 ≤5 行;≥3 并列要点改列表;成组论述装进 `.ember-admonition`(success / warning / danger)暖色框分组;概念关系直接上图。`prose-wall` 兜底。**known-bugs 1.45** |
+| 为了和上文列宽对齐,把密图(≥20 label)压进窄列或 grid 单元格 | 对齐让位于可读性——图看不清等于没画(2026-07-06 用户反馈原话「没必要一定要和上面对齐」)。密图 breakout 到 `.ember-container--wide` 独立区块,grid 里独占全行(`grid-column: 1 / -1`)或拆图。**known-bugs 1.29 / 1.44** |
+
+## 📋 发布前 checklist（MUST — 四道机械检查都要 exit 0）
+
+```bash
+bin/design-review --skill=ember <path/to/your.html>          # 结构 + 渲染 + 可达性 + 截图
+bin/design-review --skill=ember --pixel <path/to/your.html>  # 再加像素回归（需已有基线）
+```
+
+第三道是 **axe-core**，color-contrast 是阻断项。截图必须人眼看过。
+任何一道 exit 非 0 → **任务没完成**。
+
+## 📐 Lineup card 质量底线
+
+每张卡 `aspect-ratio: 1`，满版 illustration，一眼能看出这个 skill 是干什么的。禁止"小图标 + 大片空白"。
+
+## 📊 Hero diagram 质量底线
+
+1. 在 1440 视口渲染宽度 ≥ 900px
+2. 最小字体 ≥ 10（viewBox 坐标系），渲染 ≥ 9px
+3. 用 stage labels（`01 · 02 · 03`）引导视线
+4. 只用本 skill 的调色板
+5. 加至少一个肌理细节（hairline 网格 / 阴影 / 装饰点）让它不像 ppt

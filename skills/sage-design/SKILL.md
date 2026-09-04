@@ -1,0 +1,130 @@
+---
+name: sage-design
+description: "Render HTML/CSS in a quiet, modern, Nordic-minimal aesthetic — sage green (#97B077), warm rice-paper cream (#f8faec), deep indigo (#393C54), Instrument Serif display + Inter body + JetBrains Mono. Evokes Muji / Kinfolk-Nordic / botanical studios / modern journals / quiet tech brands / reading apps. TRIGGER when the user says 'sage 风格' / 'sage style' / '抹茶' / '北欧极简' / '安静' / 'quiet editorial' / 'Nordic minimal' / 'matcha / botanical / library', or asks for a landing / journal / reading interface with restraint and negative space. DO NOT TRIGGER for warm-brown handcraft (use ember-design), high-tech white minimalism (use apple-design), or cream-with-orange (use anthropic-design)."
+last-verified: 2026-04-19
+---
+
+# Sage Design — Quiet Nordic Minimalism
+
+让 Claude 把任何 HTML 渲染成"安静 · 留白 · 现代植物感"的视觉语言：米黄底、深靛蓝标题、sage 绿强调、Instrument Serif 衬线 headline、Inter 无衬线正文。灵感来自 Muji、Kinfolk、北欧 / 日系生活方式杂志、植物学图鉴、安静的独立品牌。
+
+## 使用方式
+
+1. `<link rel="stylesheet" href="assets/fonts.css">` 然后 `<link rel="stylesheet" href="assets/sage.css">`
+2. 用 `sage-*` 前缀 class
+3. 模板见 `templates/`
+
+## 调色板（严格遵守）
+
+| Token | Hex | Use |
+|---|---|---|
+| `--sage-bg` | `#f8faec` | page / section background (rice-paper cream) |
+| `--sage-sage` | `#97B077` | accent / CTA fill / illustration primary |
+| `--sage-ink` | `#393C54` | display headings, strong text, dark sections |
+| `--sage-text` | `#2a2c40` | body text |
+| `--sage-text-secondary` | `#6d6f82` | muted / captions |
+| `--sage-divider` | `#e5e8da` | hairline rules |
+| `--sage-card` | `#ffffff` | elevated cards |
+| `--sage-sage-dark` | `#7a9561` | sage hover |
+
+**Typography:** Instrument Serif (display, 500/400-italic) + Inter (body, 400/500/600) + JetBrains Mono (code, 400).
+
+## 触发关键词
+
+`sage 风格` / `sage style` / `抹茶` / `北欧极简` / `quiet editorial` / `Nordic minimal` / `botanical` / `matcha` / `library feel` / `Muji style` / `reading app` / `journal / magazine with restraint` / `modern green brand`
+
+## 不要用于
+
+- 暖棕 / 手工 / Aesop（用 `ember-design`）
+- 苹果风极简（用 `apple-design`）
+- 橙色胶囊按钮（用 `anthropic-design`）
+- 零基础图解 / eli5 / picture explainer —— 给完全不懂的人讲一个概念（用 `primer-design`：厚描边插画 + 比喻卡 + 术语翻译；sage 是安静的阅读排版，不是图解读本）
+- dark mode / 霓虹 / 彩虹
+- 情绪化插画 / 儿童 UI
+
+## 阅读顺序
+
+1. `references/design-tokens.md` — 色板 + 字体 + 间距
+2. `references/diagram-craft.md` — **手工 SVG 图示工艺（画任何图前 MUST 读）**：绿单焦点 + 靛蓝做墨 + 暖灰分层、先定尺寸再画、内核谱系、图密度合约、反模式
+3. `references/dos-and-donts.md` — 反例 + **发布前 checklist**
+4. `assets/sage.css` — CSS 变量与组件
+5. `templates/` — 着陆页骨架（mirrors ember-design structure, sage palette；图示模板见 `templates/diagrams/`，8 件）
+
+## 图密度合约（写任何页面前 MUST — 不只画图时）
+
+**尽可能用图表达**——这是默认要求，不需要用户提醒。下表任一形态出现就该配视觉化
+（图型列是**默认起点不是强制规格**——结构按实际内容定制、可混搭可自创，硬约束只有
+"该有图的地方有图" + 工艺质量检查）：
+
+| 内容形态 | 必须配 | 内容形态 | 必须配 |
+|---|---|---|---|
+| ≥3 步流程 / 启动链 / 数据流 | 流程图 | 数字对比 / 统计 | stat callout 或图表 |
+| 系统结构 / 分层 / 依赖 | 架构图 | 时间演进 / 排程 | 时间线 |
+| 函数控制流 / 寄存器位域 | 函数流程图 / 位域图 | SoC 结构 / 信号时序 / 编译链 | 对应内核图型（diagram-craft §6） |
+| 产品 / UI 描述 | 窗口 mock（canonical landing 的编辑器 mock 语法） | 连续纯文字 > 2 屏 | ≥ 1 个视觉元素 |
+
+节奏：每 1.5 屏（≈1300px @1440）≥ 1 个 SVG / figure / stat。机器检查 `text-desert` 在连续
+2600px 无视觉元素时 warn（known-bugs 1.31）。动笔画图前再读 `references/diagram-craft.md`：
+§3 先定尺寸再画（**内容多就加宽加高画布，禁止把图缩小去迁就版式——看不清 = 没画**）、
+§0-1 色彩（绿 `#97B077` 单焦点 + 靛蓝 `#393C54` 做墨 + 低饱和 tint `#f0f3e2`/`#c9d1b3`/`#eef2de`
+分层——层次靠 tint 不靠饱和，完整调色板以 diagram-craft §1 为准）。现成图直接抄
+`templates/diagrams/`（8 件内核工程谱系），案例库见 `demos/sage-design/diagrams.html`（每张带 Copy SVG）。
+
+## 发布前检查(MUST — 交给 design-review skill)
+
+### 生成**前**读 canonical + 拿合约
+
+```bash
+~/.claude/skills/design-review/dr-cli --plan --skill=sage --page=<pricing|landing|docs-home>
+# 读 ~/.claude/skills/sage-design/references/canonical/<page>.html + .md
+```
+
+### 生成**后**写 self-diff note(交付前 MUST)
+
+生成器在写完 HTML、跑四道检查之前,必须在 `</body>` 前 embed 一个
+`design-review:self-diff v1` HTML 注释块,列出 5-7 条本次生成的关键
+设计决策 + 2-3 条 known trade-offs。contract 见
+`~/.claude/skills/design-review/references/cross-skill-rules.md §M`,示范参考
+`~/.claude/skills/anthropic-design/references/canonical/comparison.html` 末尾。
+
+没有 self-diff = canonical 不被 `verify.py` 承认。critic 也无法做实
+质评审(没有作者意图的靶子)。HARNESS-ROADMAP Phase 03 的硬规则。
+
+### 生成**后**跑四道机械检查 + critic
+
+```bash
+~/.claude/skills/design-review/dr-cli --critic <path/to/your.html>
+```
+
+四道机械检查:`verify.py` · `visual-audit.mjs`(加 §J italic / §K brand + smell)·
+`axe-audit.mjs`(可达性,color-contrast 阻断)· `screenshot.mjs`;
+四道之外,`--critic` 再跑 `critic.mjs`(LLM taste 0-100 分)。
+
+任一 error = 失败。critic 得分 < 75 必修。canonical 自回归 ≥ 90。
+
+规则:`~/.claude/skills/design-review/references/cross-skill-rules.md` A-L +
+`known-bugs.md`。canonical:`~/.claude/skills/sage-design/references/canonical/`。
+
+Evaluator 和 generator 分离是刻意的 —— 参考 Anthropic
+[harness design for long-running apps](https://www.anthropic.com/engineering/harness-design-long-running-apps)
+里的 GAN 式 discriminator。
+
+### sage 专属要点
+
+sage 绿 `#97B077` 在白底上对比度只有 2.4(fail AA), 所以
+primary CTA 用 `--sage-ink` (#393C54), sage 绿只做 accent + 大面积填充 + 白字。
+风格规则详见 `references/dos-and-donts.md`。
+
+## 设计签名（不能漏掉的"sage 味"）
+
+- hairline 分隔：`1px solid var(--sage-divider)`
+- 编号 section 标记：`01 · 02 · 03`（JetBrains Mono, `--sage-text-secondary`）
+- 大号 **Instrument Serif** italic headline（尤其 hero 和 pull-quote）
+- sage 填色 pill 按钮 + 纯白文字（contrast ≥ 4.5）
+- 暗部用 `--sage-ink`（深靛蓝），不是纯黑
+- 图表 / 图示调色板以 `diagram-craft.md` §1 为准（绿单焦点 + 靛蓝墨 + 低饱和 tint 分层）；UI 组件主色仍是 `#97B077 / #393C54 / #f8faec / #e5e8da`
+- 大量负空间（section padding ≥ 96px vertical）
+
+## 为什么"sage"而不是"green"
+
+英文 sage 既是颜色也是"贤者 / 从容"，双关贴合这个调色板的气质：不是活力的 Kermit 绿，也不是科技绿，而是一种经过思考的、安静的、植物性的绿。和深靛蓝搭配时，像夜晚庭园里的一棵小树——这是这个 skill 想要 Claude 渲染出的东西。

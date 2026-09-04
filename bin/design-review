@@ -1,0 +1,541 @@
+#!/usr/bin/env bash
+# design-review — one-command wrapper for the design review pipeline
+#
+# Runs the four mechanical gates, plus opt-in extras (the gate model is
+# defined once in skills/design-review/SKILL.md — this list mirrors it):
+#   [1/4] verify.py         — structural (placeholders, DOCTYPE, BEM, …)
+#   [2/4] visual-audit.mjs  — rendered (contrast, brand-presence, italic,
+#                             cross-skill-smell, …) — Playwright + pngjs
+#   [3/4] axe-audit.mjs     — accessibility conformance (axe-core); 4 rules
+#                             blocking incl. color-contrast (measured per
+#                             skill; glass light's 84-element debt paid
+#                             2026-08-27 — corpus clean both themes, §6.6)
+#   [4/4] screenshot.mjs    — full-page PNG for human review
+#   +1    pixel-gate.mjs (opt-in, --pixel) — rendered pixels vs a committed
+#                             baseline; the only gate that fails on something
+#                             no rule describes
+#   +1    critic.mjs (opt-in, --critic / --multi-critic) — LLM taste judge,
+#                             outside the mechanical four; prepares prompt
+#                             for a Claude (or other LLM) call
+#
+# Usage:
+#   bin/design-review [flags] <html-path> [...]
+#
+# Flags:
+#   --repo=<path>      Webroot for serving assets (Playwright gates). Defaults to CWD.
+#                      Use this when running from outside sky-skills (e.g. against
+#                      engram's docs/en/index.html — set --repo=/path/to/engram).
+#   --skill=<name>     Force a skill: anthropic | apple | ember | sage | glass | eclat | lectern | atelier | primer.
+#                      If omitted, verify.py auto-detects from the HTML's <link>.
+#   --theme=<t>        dark | light — forwarded to visual-audit + screenshot
+#                      (flips html[data-theme] after load). With --skill=glass
+#                      and no explicit --theme, gates 2-4 run BOTH themes
+#                      automatically (dark is brand-canonical, light is the
+#                      iOS-frost variant; both must be clean).
+#   --css=<path>       Extra CSS file for class-definition lookup. Can repeat.
+#   --strict           Treat visual-audit warnings as failure (default: only errors).
+#   --viewport2=WxH    Width of the second-viewport geometry pass (default 1024).
+#                      visual-audit re-runs the overlap/overflow checks at this
+#                      narrower width and reports width-dependent collisions as
+#                      warnings tagged [at Npx]. Skipped if the main viewport is
+#                      already narrow.
+#   --no-second-viewport
+#                      Disable that second pass (main viewport only).
+#   --internal         (alias --allow-monolingual) Forwarded to gate 1 verify.py:
+#                      skip the bilingual-page rule for internal monolingual docs.
+#                      Gates 2/3/4 unchanged — glass still auto-runs both themes.
+#   --out=<dir>        Where to save screenshots (default: <repo>/shots/).
+#   --pixel            Also run the pixel-regression gate against the committed
+#                      baseline in skills/design-review/baselines/.
+#   --pixel-baseline   Record/overwrite that baseline instead of comparing.
+#                      Do this deliberately — it is how an intended visual
+#                      change gets accepted.
+#   --no-axe           Skip the accessibility gate (gate 3).
+#   --critic           Also run the LLM critic. Writes the critic prompt
+#                      to <out>/critic-<basename>-<timestamp>.md. You then feed
+#                      that to Claude / any LLM, or in Claude Code invoke the
+#                      `design-critic` subagent with the target path.
+#   --multi-critic     Like --critic, but uses 4 specialist subagents in parallel
+#                      (composition/copy/illustration/brand) plus an aggregator.
+#                      Writes 5 prompt files to <out>/multi-critic-*-<ts>.md.
+#                      Each specialist scores only its axis in fresh context.
+#   --learn            Harness component 07 · learning-loop. After you have
+#                      verdict files in <out>/verdict-*.json (or multi-critic
+#                      outputs), builds a design-learner prompt that proposes
+#                      new known-bugs rows, visual-audit checks, and dos-and-donts
+#                      entries. Proposes only — human applies.
+#   --evolve           Harness component 09 · design-evolve. Print the self-
+#                      improvement loop checklist + current ledger frontier.
+#                      See skills/design-evolve/SKILL.md for the full ratchet.
+#   --ledger [...]     Pass through to evolve-ledger.mjs (--frontier | --append …):
+#                      the append-only experiment log + running-best curve.
+#   --rules  [...]     Pass through to evolve-rules.mjs (--report | --lint |
+#                      --register …): rule registry + EvolveR success scoring.
+#   --regress [...]    Pass through to regression-gate.mjs (--baseline |
+#                      --check --skill=X): held-out anti-overfit gate.
+#   --coverage [...]   Pass through to coverage.mjs (component 02): the canonical
+#   --facts [...]     Pass through to facts.mjs. Checks every published count
+#                     (skills, design skills, canonicals, known-bugs) against
+#                     what is actually on disk; --list prints the truth,
+#                     --strict also gates the showcase demos. Exit 1 on drift.
+#                      library skill×page-type matrix, gaps, and uncommitted pages.
+#   --loop [...]       Pass through to design-loop.mjs (component 06): the
+#                      deterministic /design-loop driver — --init / --record /
+#                      --status. Owns the round counter, ≥88 ship gate,
+#                      escalate-at-max, .loop.log, and deposit-on-ship.
+#   --plan --skill=X --page=Y
+#                      Planning mode — skip all gates, generate sprint-contract.md
+#                      for an upcoming page generation.
+#   --distill --skill=X --page=Y [--corpus=<dir>] [--out=<dir>]
+#                      Harness component 08 · library-grower. Skip all gates and
+#                      distill a candidate canonical from ≥5 successful
+#                      same-type pages (all 4 gates passed, critic ≥ 88).
+#                      --corpus defaults to corpus/<skill>/<page>/ under the
+#                      sky-skills root. The corpus is a FLAT dir of same-type
+#                      pages: the count is `find … -maxdepth 1` to match
+#                      library-grower.mjs, which scans the dir flat (readdir,
+#                      no recursion). Nested subdirs are intentionally NOT
+#                      counted — keep all corpus pages directly in the dir.
+#                      If the corpus holds fewer than 5 .html
+#                      files, reports "insufficient samples" and exits 1
+#                      instead of running. Output (candidate.md +
+#                      provenance.json) is a DRAFT for human review — the
+#                      grower proposes, it never ships into the canonical
+#                      library by itself.
+#   --audit            Audit mode — batch-check existing HTML (file or directory)
+#                      with verify + visual-audit, no screenshot, do NOT exit on
+#                      first error, aggregate results into one report.
+#                      Pass-through flags: --skill, --out, --strict.
+#                      Audit-only flags (forwarded to audit.mjs):
+#                        --max=<n>             cap files audited
+#                        --exclude=<csv>       dir names to skip
+#                        --include=<substr>    filename filter (default ".html")
+#                        --no-visual           verify-only (~10x faster)
+#                        --allow-monolingual   skip bilingual rule
+#                        --discover            list every .html walk() finds
+#                                              (grouped by dir) and exit — no gating.
+#                                              Surfaces nested / underscore-dir
+#                                              pages so none ship ungated.
+#                      Writes audit-report-<ts>.md + .json to --out.
+#                      Examples:
+#                        bin/design-review --audit docs/                  # whole dir
+#                        bin/design-review --audit --skill=anthropic site/index.html
+#                        bin/design-review --audit --no-visual my-wiki/   # verify-only batch
+#                        bin/design-review --audit --discover deck/       # list pages, gate nothing
+#                        bin/design-review --audit https://example.com/p  # remote URL
+#
+#   PRE-SHIP A MULTI-PAGE DECK: gate the whole tree, not file-by-file.
+#                      bin/design-review --audit <deck-dir>   recurses into nested
+#                      and `_demos/`-style dirs, so a page in a subdirectory can't
+#                      silently skip the gate. Per-file review is for authoring one
+#                      page; --audit <dir> is the backstop before you ship.
+#   -h, --help         Print this help.
+#
+# Examples:
+#   # full review of a new pricing page
+#   bin/design-review --critic docs/my-new-pricing.html
+#
+#   # cross-repo review (engram docs against anthropic-design rules)
+#   bin/design-review --repo=~/code/engram --skill=anthropic \
+#     --css=docs/assets/app.css docs/en/index.html
+#
+#   # generate a contract before writing (prints to stdout)
+#   bin/design-review --plan --skill=sage --page=landing
+
+set -eu
+
+# Resolve $0 through symlinks first so the CLI locates its own repo root even
+# when invoked via a launcher symlink (e.g. ~/.claude/skills/design-review/dr-cli).
+SELF="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+SELF_DIR="$(cd "$(dirname "$SELF")" && pwd)"
+SKY_ROOT="$(cd "$SELF_DIR/.." && pwd)"
+
+# ---------- Self-evolution (component 09 · design-evolve) — thin pass-throughs ----------
+# Handled BEFORE the gate-arg parser so each sub-script's own flags pass through
+# untouched. The loop these support is documented in skills/design-evolve/SKILL.md.
+EVOLVE_SCRIPTS="$SKY_ROOT/skills/design-review/scripts"
+case "${1:-}" in
+  --ledger)  shift; exec node "$EVOLVE_SCRIPTS/evolve-ledger.mjs" "$@" ;;
+  --rules)   shift; exec node "$EVOLVE_SCRIPTS/evolve-rules.mjs" "$@" ;;
+  --regress) shift; exec node "$EVOLVE_SCRIPTS/regression-gate.mjs" "$@" ;;
+  --coverage) shift; exec node "$EVOLVE_SCRIPTS/coverage.mjs" "$@" ;;
+  --facts)   shift; exec node "$EVOLVE_SCRIPTS/facts.mjs" "$@" ;;
+  --loop)    shift; exec node "$EVOLVE_SCRIPTS/design-loop.mjs" "$@" ;;
+  --evolve)
+    cat <<'EVO'
+design-evolve · the self-improvement loop (harness component 09)
+Full ratchet: skills/design-evolve/SKILL.md. One round:
+  0. lock baseline — generate S×P, score it, regression-gate --baseline --skill=S
+  1. diagnose the weakest critic axis (composition / copy / illustration / brand)
+  2. propose ONE rule/template change for that axis  (--rules --register …)
+  3. apply on a branch + regenerate the page
+  4. score with the FROZEN evaluator (4 gates green + multi-critic, avg ≥3 renders)
+  5. --regress --check --skill=S   (no held-out canonical may regress)
+  6. keep iff Δ ≥ 2 AND step 5 clean; else git revert.  (--ledger --append …)
+  7. --rules --fire=<id> [--catch]      8. repeat to --max-rounds or plateau
+The evaluator is FROZEN: never edit verify.py / visual-audit.mjs / the rubric in
+a round. Evaluator changes and whole-skill rewrites are human-gated.
+
+current ledger frontier:
+EVO
+    node "$EVOLVE_SCRIPTS/evolve-ledger.mjs" --frontier 2>/dev/null || echo "  (no ledger yet — run a round to start one)"
+    exit 0
+    ;;
+esac
+
+REPO="$PWD"
+SKILL=""
+PAGE=""
+THEME=""
+VIEWPORT2=""
+NO_SECOND_VP=""
+STRICT=""
+OUT_DIR=""
+CRITIC=""
+MULTI_CRITIC=""
+LEARN=""
+PLAN=""
+DISTILL=""
+CORPUS=""
+AUDIT=""
+INTERNAL=""
+AUDIT_FORWARD=()
+CSS_ARGS=()
+HTMLS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --repo=*)  REPO="${arg#--repo=}" ;;
+    --skill=*) SKILL="${arg#--skill=}" ;;
+    --page=*)  PAGE="${arg#--page=}" ;;
+    --theme=*) THEME="${arg#--theme=}" ;;
+    --viewport2=*) VIEWPORT2="${arg#--viewport2=}" ;;
+    --no-second-viewport) NO_SECOND_VP=1 ;;
+    --css=*)   CSS_ARGS+=("$arg") ;;
+    --strict)  STRICT=1 ;;
+    --out=*)   OUT_DIR="${arg#--out=}" ;;
+    --critic)       CRITIC=1 ;;
+    --pixel)          PIXEL_GATE=1 ;;
+    --pixel-baseline) PIXEL_GATE=1; PIXEL_BASELINE=1 ;;
+    --no-axe)         NO_AXE=1 ;;
+    --multi-critic) MULTI_CRITIC=1 ;;
+    --learn)        LEARN=1 ;;
+    --plan)    PLAN=1 ;;
+    --distill) DISTILL=1 ;;
+    --corpus=*) CORPUS="${arg#--corpus=}" ;;
+    --audit)   AUDIT=1 ;;
+    --internal|--allow-monolingual)
+               INTERNAL=1
+               AUDIT_FORWARD+=("$arg") ;;
+    --max=*|--exclude=*|--include=*|--no-visual|--discover)
+               AUDIT_FORWARD+=("$arg") ;;
+    -h|--help)
+      awk 'NR < 2 { next } /^set -eu/ { exit } { sub(/^# ?/, ""); print }' "$0"
+      exit 0
+      ;;
+    --*)
+      echo "unknown flag: $arg" >&2
+      exit 2
+      ;;
+    *) HTMLS+=("$arg") ;;
+  esac
+done
+
+# ---------- Planning mode (skip all gates, emit contract) ----------
+if [ -n "$PLAN" ]; then
+  if [ -z "$SKILL" ] || [ -z "$PAGE" ]; then
+    echo "--plan requires both --skill=<name> and --page=<type>" >&2
+    exit 2
+  fi
+  exec node "$SKY_ROOT/skills/design-review/scripts/sprint-contract.mjs" \
+    "--skill=$SKILL" "--page=$PAGE"
+fi
+
+# ---------- Distill mode (component 08 · library-grower, skip all gates) ----------
+if [ -n "$DISTILL" ]; then
+  if [ -z "$SKILL" ] || [ -z "$PAGE" ]; then
+    echo "--distill requires both --skill=<name> and --page=<type>" >&2
+    exit 2
+  fi
+  [ -z "$CORPUS" ] && CORPUS="$SKY_ROOT/corpus/$SKILL/$PAGE"
+  MIN_SAMPLES=5  # keep in sync with library-grower.mjs
+  sample_count=0
+  if [ -d "$CORPUS" ]; then
+    # -maxdepth 1 on purpose: the corpus is a FLAT dir and library-grower.mjs
+    # scans it flat (readdir, no recursion). Counting recursively here would
+    # disagree with what the distiller actually reads. Keep corpus pages in
+    # the dir itself, not in subdirs.
+    sample_count="$(find "$CORPUS" -maxdepth 1 -name '*.html' | wc -l | tr -d ' ')"
+  fi
+  if [ "$sample_count" -lt "$MIN_SAMPLES" ]; then
+    echo "✗ insufficient samples: $sample_count .html in $CORPUS (need ≥ $MIN_SAMPLES)" >&2
+    echo "  library-grower distills from $MIN_SAMPLES+ successful same-type pages" >&2
+    echo "  (each passed all 4 gates with critic ≥ 88). Collect more successful" >&2
+    echo "  pages first, or point at another directory via --corpus=<dir>." >&2
+    exit 1
+  fi
+  distill_args=("--skill=$SKILL" "--page=$PAGE" "--corpus=$CORPUS")
+  [ -n "$OUT_DIR" ] && distill_args+=("--out=$OUT_DIR")
+  exec node "$SKY_ROOT/skills/design-review/scripts/library-grower.mjs" "${distill_args[@]}"
+fi
+
+# ---------- Audit mode (batch verify + visual-audit, aggregate report) ----------
+if [ -n "$AUDIT" ]; then
+  if [ "${#HTMLS[@]}" -eq 0 ]; then
+    echo "--audit requires a path argument (file or directory)" >&2
+    exit 2
+  fi
+  AUDIT_TARGET="${HTMLS[0]}"
+  if [ "${#HTMLS[@]}" -gt 1 ]; then
+    echo "--audit takes exactly one path; got: ${HTMLS[*]}" >&2
+    echo "(use --include / --exclude to scope what audit.mjs walks under that path)" >&2
+    exit 2
+  fi
+  audit_args=("$AUDIT_TARGET")
+  [ -n "$SKILL" ] && audit_args+=("--skill=$SKILL")
+  [ -n "$REPO" ] && audit_args+=("--repo=$REPO")
+  [ -n "$OUT_DIR" ] && audit_args+=("--out=$OUT_DIR")
+  [ -n "$STRICT" ] && audit_args+=("--strict")
+  for f in "${AUDIT_FORWARD[@]}"; do audit_args+=("$f"); done
+  exec node "$SKY_ROOT/skills/design-review/scripts/audit.mjs" "${audit_args[@]}"
+fi
+
+if [ "${#HTMLS[@]}" -eq 0 ]; then
+  echo "usage: bin/design-review [--critic] [--repo=<path>] [--skill=<name>] [--css=<path>]... <html> [...]" >&2
+  echo "       bin/design-review --plan --skill=<name> --page=<type>" >&2
+  echo "       bin/design-review --distill --skill=<name> --page=<type> [--corpus=<dir>]" >&2
+  exit 2
+fi
+
+REPO="$(cd "$REPO" && pwd)"
+[ -z "$OUT_DIR" ] && OUT_DIR="$REPO/shots"
+mkdir -p "$OUT_DIR"
+
+VERIFY="$SKY_ROOT/skills/design-review/scripts/verify.py"
+VISUAL="$SKY_ROOT/skills/design-review/scripts/visual-audit.mjs"
+SCREEN="$SKY_ROOT/skills/design-review/scripts/screenshot.mjs"
+AXE="$SKY_ROOT/skills/design-review/scripts/axe-audit.mjs"
+PIXEL="$SKY_ROOT/skills/design-review/scripts/pixel-gate.mjs"
+CRITIC_SCRIPT="$SKY_ROOT/skills/design-review/scripts/critic.mjs"
+MULTI_CRITIC_SCRIPT="$SKY_ROOT/skills/design-review/scripts/multi-critic.mjs"
+LEARN_SCRIPT="$SKY_ROOT/skills/design-review/scripts/learning-loop.mjs"
+
+SKILL_FLAG=()
+[ -n "$SKILL" ] && SKILL_FLAG=("--skill=$SKILL")
+
+PIXEL_GATE="${PIXEL_GATE:-}"
+PIXEL_BASELINE="${PIXEL_BASELINE:-}"
+NO_AXE="${NO_AXE:-}"
+
+# The critic is NOT counted: it runs outside the numbered mechanical gates
+# (the gate model is defined once in skills/design-review/SKILL.md).
+TOTAL_GATES=4
+[ -n "$PIXEL_GATE" ] && TOTAL_GATES=$((TOTAL_GATES + 1))
+
+CRITIC_MODE="no"
+[ -n "$CRITIC" ] && CRITIC_MODE="solo"
+[ -n "$MULTI_CRITIC" ] && CRITIC_MODE="multi (4 specialists)"
+
+echo ""
+echo "┌─ design-review · $(date +%Y-%m-%d\ %H:%M:%S)"
+echo "│  repo=$REPO  skill=${SKILL:-auto}  strict=${STRICT:-no}  critic=$CRITIC_MODE"
+echo "│  targets: ${HTMLS[*]}"
+echo "└───────────────────────────────────────────────────────"
+echo ""
+
+# ---------- Gate 1 · structural ----------
+# --internal forwards to verify.py only (skips the bilingual-page rule for
+# internal monolingual docs); gates 2/3/4 behave identically either way, so
+# glass pages still get the automatic dark+light double run.
+VERIFY_FLAGS=()
+[ -n "$INTERNAL" ] && VERIFY_FLAGS+=("--internal")
+echo "━━ [1/$TOTAL_GATES] verify.py (structural)"
+( cd "$REPO" && python3 "$VERIFY" "${SKILL_FLAG[@]}" "${VERIFY_FLAGS[@]}" "${CSS_ARGS[@]}" "${HTMLS[@]}" )
+
+# ---------- Theme matrix ----------
+# Default: one run, no theme override. Explicit --theme: that theme only.
+# glass with no --theme: dark (brand-canonical) AND light (iOS-frost) — both
+# must be clean before a glass page ships.
+THEMES=("default")
+if [ -n "$THEME" ]; then
+  THEMES=("$THEME")
+elif [ "$SKILL" = "glass" ]; then
+  THEMES=("dark" "light")
+fi
+
+# ---------- Gate 2 · visual-audit ----------
+exit_visual=0
+for theme in "${THEMES[@]}"; do
+  VISUAL_FLAGS=(--ignore-intentional)
+  [ -n "$VIEWPORT2" ] && VISUAL_FLAGS+=("--viewport2=$VIEWPORT2")
+  [ -n "$NO_SECOND_VP" ] && VISUAL_FLAGS+=("--no-second-viewport")
+  theme_label=""
+  if [ "$theme" != "default" ]; then
+    VISUAL_FLAGS+=("--theme=$theme")
+    theme_label="  [theme=$theme]"
+  fi
+  for html in "${HTMLS[@]}"; do
+    echo ""
+    echo "━━ [2/$TOTAL_GATES] visual-audit.mjs (rendered + brand + italic + smell)  $html$theme_label"
+    if ! ( cd "$REPO" && node "$VISUAL" "${VISUAL_FLAGS[@]}" "$html" ); then
+      exit_visual=1
+    fi
+  done
+done
+if [ "$exit_visual" -ne 0 ]; then
+  echo ""
+  echo "✗ visual-audit produced errors — fix before continuing" >&2
+  exit 1
+fi
+
+# ---------- Gate 3 · axe-core accessibility conformance ----------
+# Runs by default. Four rules are BLOCKING (color-contrast, link-name,
+# aria-prohibited-attr, svg-img-alt). The promotions were measured per skill,
+# but that pass sampled ONE theme per page, and glass's light theme went
+# unmeasured — it carried 84 color-contrast blockers for eleven days. Paid
+# 2026-08-27 at the token level; all seven pages that link glass.css now
+# measure clean in BOTH themes (known-bugs §6.6). The standing lesson: a
+# promotion is only as wide as its sample, and theme is part of the sample.
+# History: color-contrast was WARN at rollout (1,013 elements) and was
+# promoted the same day the sampled debt was paid down (known-bugs §7.11).
+# See axe-audit.mjs PROMOTED for the list and the measurement.
+exit_axe=0
+if [ -n "$NO_AXE" ]; then
+  echo ""
+  echo "━━ [3/$TOTAL_GATES] axe-audit.mjs — SKIPPED (--no-axe)"
+fi
+for theme in "${THEMES[@]}"; do
+  [ -n "$NO_AXE" ] && break
+  AXE_FLAGS=("--strict")
+  axe_label=""
+  if [ "$theme" != "default" ]; then
+    AXE_FLAGS+=("--theme=$theme")
+    axe_label="  [theme=$theme]"
+  fi
+  for html in "${HTMLS[@]}"; do
+    echo ""
+    echo "━━ [3/$TOTAL_GATES] axe-audit.mjs (accessibility · axe-core)  $html$axe_label"
+    if ! ( cd "$REPO" && node "$AXE" "${AXE_FLAGS[@]}" "$html" ); then
+      exit_axe=1
+    fi
+  done
+done
+if [ "$exit_axe" -ne 0 ]; then
+  echo ""
+  echo "✗ axe-audit found blocking violations — fix before continuing" >&2
+  exit 1
+fi
+
+# ---------- Gate 4 · screenshot ----------
+for theme in "${THEMES[@]}"; do
+  SCREEN_FLAGS=()
+  suffix=""
+  if [ "$theme" != "default" ]; then
+    SCREEN_FLAGS=("--theme=$theme")
+    suffix="-$theme"
+  fi
+  for html in "${HTMLS[@]}"; do
+    base="$(basename "$html" .html)"
+    out="$OUT_DIR/${base}${suffix}-$(date +%Y%m%d-%H%M%S).png"
+    echo ""
+    echo "━━ [4/$TOTAL_GATES] screenshot.mjs    $html  →  $out"
+    ( cd "$REPO" && node "$SCREEN" "${SCREEN_FLAGS[@]}" "$html" "$out" )
+  done
+done
+
+# ---------- Gate 5 · pixel regression (opt-in) ----------
+# Opt-in because it needs a committed baseline per page+theme. It is the only
+# gate that can fail on something no rule describes — a card shifting, a colour
+# drifting, a web font falling back — because it compares rendered pixels, not
+# findings. --pixel-baseline records; --pixel compares.
+if [ -n "$PIXEL_GATE" ]; then
+  exit_pixel=0
+  for theme in "${THEMES[@]}"; do
+    PIXEL_FLAGS=()
+    pixel_label=""
+    [ -n "$PIXEL_BASELINE" ] && PIXEL_FLAGS+=("--baseline")
+    if [ "$theme" != "default" ]; then
+      PIXEL_FLAGS+=("--theme=$theme")
+      pixel_label="  [theme=$theme]"
+    fi
+    for html in "${HTMLS[@]}"; do
+      echo ""
+      echo "━━ [5/$TOTAL_GATES] pixel-gate.mjs (visual regression)  $html$pixel_label"
+      if ! ( cd "$REPO" && node "$PIXEL" "${PIXEL_FLAGS[@]}" --out="$OUT_DIR" "$html" ); then
+        exit_pixel=1
+      fi
+    done
+  done
+  if [ "$exit_pixel" -ne 0 ]; then
+    echo ""
+    echo "✗ pixel-gate found visual regressions — inspect the diff PNGs, then" >&2
+    echo "  re-baseline with --pixel-baseline only if the change is intended" >&2
+    exit 1
+  fi
+fi
+
+# ---------- Taste · design-critic (solo OR 4 specialists, outside the mechanical gates) ----------
+if [ -n "$CRITIC" ]; then
+  for html in "${HTMLS[@]}"; do
+    base="$(basename "$html" .html)"
+    critic_prompt="$OUT_DIR/critic-${base}-$(date +%Y%m%d-%H%M%S).md"
+    echo ""
+    echo "━━ critic.mjs · LLM taste, outside the numbered gates (solo critic prompt)   $html"
+    critic_args=("$html")
+    [ -n "$SKILL" ] && critic_args+=("--skill=$SKILL")
+    [ -n "$PAGE" ]  && critic_args+=("--page=$PAGE")
+    critic_args+=("--out=$critic_prompt")
+    if ( cd "$REPO" && node "$CRITIC_SCRIPT" "${critic_args[@]}" ); then
+      echo "   prompt written → $critic_prompt"
+      echo "   next: feed to Claude (or in Claude Code invoke 'design-critic' subagent)"
+    else
+      echo "   critic prompt prep FAILED — likely missing canonical for this skill/page" >&2
+      exit 1
+    fi
+  done
+fi
+
+if [ -n "$MULTI_CRITIC" ]; then
+  for html in "${HTMLS[@]}"; do
+    echo ""
+    echo "━━ multi-critic.mjs · LLM taste, outside the numbered gates (4 specialists — composition/copy/illustration/brand)   $html"
+    mc_args=("$html")
+    [ -n "$SKILL" ] && mc_args+=("--skill=$SKILL")
+    [ -n "$PAGE" ]  && mc_args+=("--page=$PAGE")
+    mc_args+=("--out-dir=$OUT_DIR")
+    if ! ( cd "$REPO" && node "$MULTI_CRITIC_SCRIPT" "${mc_args[@]}" >/dev/null ); then
+      echo "   multi-critic prompt prep FAILED" >&2
+      exit 1
+    fi
+    echo "   5 prompt files written (4 specialists + aggregator) in $OUT_DIR"
+    echo "   next: in Claude Code, Task() each specialist prompt in parallel, then Task() the aggregator"
+  done
+fi
+
+# ---------- Learning-loop (component 07) ----------
+if [ -n "$LEARN" ]; then
+  for html in "${HTMLS[@]}"; do
+    echo ""
+    echo "━━ [learn] learning-loop.mjs (propose known-bugs / check / dos-and-donts codifications)  $html"
+    learn_args=(--verdicts-dir="$OUT_DIR" --target="$html")
+    if ! ( cd "$REPO" && node "$LEARN_SCRIPT" "${learn_args[@]}" ); then
+      echo "   learning-loop FAILED — probably no verdicts found in $OUT_DIR" >&2
+      echo "   did you run --critic or --multi-critic first and save JSON verdicts?" >&2
+      exit 1
+    fi
+    echo "   next: in Claude Code, Task(subagent_type='design-learner', prompt=file-contents)"
+  done
+fi
+
+echo ""
+echo "┌─ Summary"
+echo "│  ✓ verify.py       (structural)"
+echo "│  ✓ visual-audit    (rendered + brand + italic + smell)"
+echo "│  ✓ axe-audit       (accessibility · axe-core)"
+echo "│  ✓ screenshot      (in $OUT_DIR)"
+[ -n "$PIXEL_GATE" ] && echo "│  ✓ pixel-gate      (visual regression vs baseline)"
+[ -n "$CRITIC" ] && echo "│  ✓ critic prompt   (solo — feed to LLM)"
+[ -n "$MULTI_CRITIC" ] && echo "│  ✓ multi-critic    (4 specialists + aggregator prompts)"
+[ -n "$LEARN" ] && echo "│  ✓ learning-loop   (proposal prompt for known-bugs / check / dos-and-donts)"
+echo "└───────────────────────────────────────────────────────"
+echo ""
