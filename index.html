@@ -141,7 +141,7 @@
     </p>
     <div style="display:flex; gap:var(--space-3); justify-content:center; flex-wrap:wrap;">
       <a class="anth-button" href="https://github.com/TbusOS/proofmark">GitHub</a>
-      <a class="anth-button anth-button--ghost" href="#voices"><span class="lang-en">See the nine</span><span class="lang-zh">看那九套</span></a>
+      <a class="anth-button anth-button--ghost" href="#worked"><span class="lang-en">See the pages</span><span class="lang-zh">看做完的页面</span></a>
     </div>
     <div class="hero-rule" aria-hidden="true"></div>
   </div>
@@ -252,7 +252,48 @@ $ echo $?
   </div>
 </section>
 
-<section class="anth-section">
+<section class="anth-section" id="worked">
+  <div class="anth-container--wide anth-container">
+    <h2 style="margin-top:var(--space-3);">
+      <span class="lang-en">Worked pages</span><span class="lang-zh">做完的页面</span>
+    </h2>
+    <p style="margin-bottom:var(--space-6);">
+      <span class="lang-en">Twenty-six pages built with these skills and shipped through the gate. The diagram galleries carry a Copy SVG button on every figure, so a figure can be lifted straight into your own page.</span>
+      <span class="lang-zh">用这些 skill 做完、并且过了检查链的 26 张页面。图例库里每张图都带一个 Copy SVG 按钮，可以直接抠去自己的页面里用。</span>
+    </p>
+    <div class="voice-grid">
+      <div class="voice-card">
+        <span class="voice-card__kicker"><span class="lang-en">Diagram galleries</span><span class="lang-zh">图例库</span></span>
+        <h3 class="voice-card__title">9</h3>
+        <p class="voice-card__body"><span class="lang-en">One per design language. Architecture, flow, hierarchy, timing waveforms, register bitfields, SoC blocks, call graphs, packet encapsulation.</span><span class="lang-zh">每套设计语言一份。架构、流程、层次、时序波形、寄存器位域、SoC 框图、调用图、封包分层。</span></p>
+        <p class="voice-card__count">
+          <a class="anth-link" href="demos/anthropic-design/diagrams.html">anthropic</a> ·
+          <a class="anth-link" href="demos/apple-design/diagrams.html">apple</a> ·
+          <a class="anth-link" href="demos/glass-design/diagrams.html">glass</a> ·
+          <a class="anth-link" href="demos/primer-design/diagrams.html">primer</a>
+        </p>
+      </div>
+      <div class="voice-card">
+        <span class="voice-card__kicker"><span class="lang-en">Long-form technical</span><span class="lang-zh">技术长文</span></span>
+        <h3 class="voice-card__title">6</h3>
+        <p class="voice-card__body"><span class="lang-en">Full-length articles where the figures carry the argument rather than decorate it.</span><span class="lang-zh">完整长文，图是用来承载论证的，不是拿来装饰的。</span></p>
+        <p class="voice-card__count">
+          <a class="anth-link" href="demos/anthropic-design/one-bit.html"><span class="lang-en">How one bit is held</span><span class="lang-zh">一个比特是怎么被存住的</span></a> ·
+          <a class="anth-link" href="demos/anthropic-design/packaging.html"><span class="lang-en">How a chip is assembled</span><span class="lang-zh">一颗芯片怎么封装出来</span></a> ·
+          <a class="anth-link" href="demos/anthropic-design/hardware.html"><span class="lang-en">How a picture reaches a screen</span><span class="lang-zh">一张画面怎么到屏幕上</span></a>
+        </p>
+      </div>
+      <div class="voice-card">
+        <span class="voice-card__kicker"><span class="lang-en">Technical explainers</span><span class="lang-zh">技术图解</span></span>
+        <h3 class="voice-card__title">10</h3>
+        <p class="voice-card__body"><span class="lang-en">Short primer-design pages on one mechanism each: address maps, interconnects, protocol layers, register decoding, scheduler timing.</span><span class="lang-zh">primer-design 的短页，一页讲一个机制：地址映射、互连拓扑、协议分层、寄存器解码、调度时序。</span></p>
+        <p class="voice-card__count"><a class="anth-link" href="demos/primer-design/tech/index.html"><span class="lang-en">All ten</span><span class="lang-zh">看全部十张</span></a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="anth-section anth-section--subtle">
   <div class="anth-container">
     <h2 style="margin-top:var(--space-3);">
       <span class="lang-en">What the gate checks</span><span class="lang-zh">那道检查查什么</span>
@@ -292,7 +333,7 @@ $ echo $?
   </div>
 </section>
 
-<section class="anth-section anth-section--subtle">
+<section class="anth-section">
   <div class="anth-container">
     <h2 style="margin-top:var(--space-3);">
       <span class="lang-en">What it refuses to judge</span><span class="lang-zh">它不判什么</span>

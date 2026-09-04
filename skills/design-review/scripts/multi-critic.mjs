@@ -220,7 +220,11 @@ async function main() {
   const crossRules = await safeRead(resolve(REPO_ROOT, 'skills/design-review/references/cross-skill-rules.md'));
   const knownBugs = await safeRead(resolve(REPO_ROOT, 'skills/design-review/references/known-bugs.md'));
   const dosDonts = await safeRead(resolve(REPO_ROOT, `skills/${skill}-design/references/dos-and-donts.md`));
-  const languageRules = await safeRead('/Users/sky/.claude/rules/language.md');
+  // Optional. A local prose-style file, if the operator keeps one. Absent on
+  // most machines, and safeRead returns null rather than failing.
+  const languageRules = process.env.DESIGN_LANGUAGE_RULES
+    ? await safeRead(process.env.DESIGN_LANGUAGE_RULES)
+    : await safeRead(resolve(process.env.HOME || '', '.claude/rules/language.md'));
 
   if (!canonicalHtml) { console.error(`canonical HTML missing: ${canonicalHtmlPath}`); return 1; }
   if (!canonicalMd) { console.error(`canonical MD missing: ${canonicalMdPath}`); return 1; }

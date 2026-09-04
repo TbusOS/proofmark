@@ -59,9 +59,17 @@ SYNCED=(
 # re-listed after --pull so the edit is re-applied rather than silently lost.
 declare -a DIVERGED_PATH=(
   "skills/design-review/scripts/facts.mjs"
+  "skills/design-review/scripts/multi-critic.mjs"
+  ".claude/agents/design-copy-critic.md"
+  "skills/design-review/baselines/demos__atelier-design__diagrams--as-authored.png"
+  "skills/design-review/baselines/demos__atelier-design__index--as-authored.png"
 )
 declare -a DIVERGED_WHY=(
   "ROSTER and CORE_SURFACES describe this repo's 12 skills and 3 pages, not upstream's 22 and 13"
+  "the prose-style file is read from \$DESIGN_LANGUAGE_RULES or \$HOME, not one author's absolute path"
+  "same: the absolute path in the 'files to read' list is replaced by an env var and a fallback"
+  "baseline for a demo page this repo does not carry (upstream's repo-story index)"
+  "same"
 )
 
 if [ -z "$UPSTREAM" ]; then
@@ -92,6 +100,23 @@ is_diverged() {
   return 1
 }
 
+# This repo carries its own name where upstream carries its. That rename is a
+# systematic transform, not a divergence, so it is undone on the upstream side
+# before comparing — otherwise every renamed file would report as drift forever
+# and the check would be ignored within a week.
+rename_upstream() {
+  sed -e 's/sky-skills/proofmark/g' -e 's/Sky Skills/proofmark/g' "$1"
+}
+
+same_content() {
+  local up="$1" here="$2"
+  if LC_ALL=C grep -qI . "$up" 2>/dev/null; then      # text
+    rename_upstream "$up" | cmp -s - "$here"
+  else                                                # binary: compare as-is
+    cmp -s "$up" "$here"
+  fi
+}
+
 drift=0
 missing=0
 for rel in "${SYNCED[@]}"; do
@@ -109,9 +134,9 @@ for rel in "${SYNCED[@]}"; do
     if [ ! -e "$other" ]; then
       echo "✗ missing here:  $sub"
       drift=$((drift + 1))
-    elif ! cmp -s "$f" "$other"; then
+    elif ! same_content "$f" "$other"; then
       echo "✗ differs:       $sub"
-      [ "$VERBOSE" = 1 ] && diff -u "$other" "$f" | sed -n '3,12p' | sed 's/^/      /'
+      [ "$VERBOSE" = 1 ] && diff -u "$other" <(rename_upstream "$f") | sed -n '3,12p' | sed 's/^/      /'
       drift=$((drift + 1))
     fi
   done < <(find "$src" -type f ! -name '.DS_Store' 2>/dev/null)
@@ -124,7 +149,12 @@ if [ "$MODE" = pull ]; then
     mkdir -p "$(dirname "$REPO/$rel")"
     rsync -a --delete --exclude '.DS_Store' "$UPSTREAM/$rel" "$(dirname "$REPO/$rel")/"
   done
-  echo "pulled $(( ${#SYNCED[@]} )) path(s) from upstream."
+  # Re-apply the rename on everything just pulled.
+  while IFS= read -r f; do
+    LC_ALL=C grep -qI . "$f" 2>/dev/null || continue
+    rename_upstream "$f" > "$f.renamed" && mv "$f.renamed" "$f"
+  done < <(for rel in "${SYNCED[@]}"; do [ -e "$REPO/$rel" ] && find "$REPO/$rel" -type f; done)
+  echo "pulled $(( ${#SYNCED[@]} )) path(s) from upstream, upstream name rewritten to this repo's."
   echo
   echo "Re-apply these deliberate divergences before committing:"
   for i in "${!DIVERGED_PATH[@]}"; do

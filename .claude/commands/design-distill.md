@@ -25,7 +25,7 @@ of producing a low-confidence draft.
   (atelier: dashboard | booking | detail | settings | signin ·
   primer: concept | process | compare)
 - `--corpus=<dir>`  optional — directory holding the successful pages;
-  defaults to `corpus/<skill>/<page>/` under the sky-skills root
+  defaults to `corpus/<skill>/<page>/` under the proofmark root
 - `--out=<dir>`     optional — where the candidate is written;
   defaults to `./grower-<skill>-<page>-<timestamp>/` (in the current directory)
 

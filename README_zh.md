@@ -50,6 +50,16 @@ $ echo $?
 
 一共 59 张参考样张，在 `skills/*/references/canonical/` 下。它们能独立打开，59 张全部能过检查链，所以生成器可以直接拿它们做标尺。
 
+## 做完的页面
+
+用这些 skill 做完、并且过了检查链的 26 张页面，在 `demos/` 下。
+
+| | |
+|---|---|
+| 9 份图例库 | 每套设计语言一份。架构、流程、层次、时序波形、寄存器位域、SoC 框图、调用图、封包分层。每张图带一个 Copy SVG 按钮，能直接抠走。 |
+| 6 篇技术长文 | [一个比特是怎么被存住的](demos/anthropic-design/one-bit.html)、[一颗芯片怎么封装出来](demos/anthropic-design/packaging.html)、[一张画面怎么到屏幕上](demos/anthropic-design/hardware.html)，另有三篇。图是用来承载论证的，不是装饰。 |
+| 10 页技术图解 | primer-design 的短页，一页讲一个机制：地址映射、互连拓扑、协议分层、寄存器解码、调度时序。 |
+
 ## 那道检查
 
 `bin/design-review <page.html>` 按顺序跑四道，第一道不过就停。

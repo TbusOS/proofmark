@@ -223,4 +223,4 @@ node cross-link-pack.mjs --pack-root docs/<pack> --base docs --out docs/<pack>/_
 # 3) cp 走 docs/<pack>/ 给任何人，链全活
 ```
 
-依赖：`marked@^15`（已在 sky-skills/node_modules）。脚本路径全部相对 `import.meta.url` 计算，整个 sky-skills 仓 cp 到任何地方都能用。
+依赖：`marked@^15`（已在 proofmark/node_modules）。脚本路径全部相对 `import.meta.url` 计算，整个 proofmark 仓 cp 到任何地方都能用。

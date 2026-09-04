@@ -111,7 +111,7 @@ async function fetchURL(url) {
   try { ({ chromium } = await import('playwright')); }
   catch {
     console.error('URL mode requires playwright (the same dep visual-audit uses).');
-    console.error('install: cd sky-skills && npm i playwright --no-save && npx playwright install chromium');
+    console.error('install: cd proofmark && npm i playwright --no-save && npx playwright install chromium');
     process.exit(2);
   }
   const hash = createHash('sha1').update(url).digest('hex').slice(0, 10);

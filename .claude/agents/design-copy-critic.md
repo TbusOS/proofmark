@@ -102,7 +102,8 @@ composition, and SVG — stay in your lane.
 
 1. Target: `<target_path>`
 2. Canonical MD's voice section: `~/.claude/skills/<skill>-design/references/canonical/<page_type>.md`
-3. User's language rules: `/Users/sky/.claude/rules/language.md`
+3. Prose-style rules, if the operator keeps a file of them: `$DESIGN_LANGUAGE_RULES`,
+   falling back to `~/.claude/rules/language.md`. Optional; skip this step when absent.
 4. Cross-skill rules: §J italic + §G bilingual
 
 ## Scoring

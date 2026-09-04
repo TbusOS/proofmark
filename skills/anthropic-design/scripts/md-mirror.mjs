@@ -13,7 +13,7 @@
  *    import { renderMarkdown } from './md-mirror.mjs';
  *    const html = renderMarkdown({ srcPath, sourceLabel, rewriteHref });
  *
- * Dependencies (already in sky-skills/node_modules):
+ * Dependencies (already in proofmark/node_modules):
  *   - marked (^15)
  *
  * In CLI mode, local <a href="*.md(?q)(#f)"> links are rewritten to *.html
@@ -210,7 +210,7 @@ ${OVERRIDE_CSS}
 <body>
 <div class="md-banner">
   <b>源文档</b>　<code>${escapeHtml(banner)}</code><br>
-  <b>渲染</b>　sky-skills / anthropic-design / md-mirror
+  <b>渲染</b>　proofmark / anthropic-design / md-mirror
 </div>
 <main class="md-shell md-content">
 ${body}
