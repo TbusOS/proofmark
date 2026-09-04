@@ -108,21 +108,34 @@ hooks/design-gate/selftest.sh            # 15 项自检
 ## 装
 
 ```bash
-git clone https://github.com/TbusOS/proofmark.git
-cd proofmark
-npm install          # playwright, axe-core, pixelmatch, pngjs
-bin/design-review examples/looks-fine.html   # 应该退出码 1
+npx github:TbusOS/proofmark install
 ```
 
-要在 Claude Code 里用这些 skill，建 symlink：
+十二个 skill、六个评审 agent、两个命令，放到 Claude Code 找得到的地方。
+**不下浏览器，不装任何依赖**——设计语言是 markdown，读它们什么都不需要。
+大约 13 秒。
+
+**它不会覆盖不是自己装的东西。** 同名的 skill 已经在那儿（你自己的东西，
+或者指向你自己库的链接），它会说出来然后让开。`--force` 才替换，
+`--dir=<路径>` 装到别处，`--dry-run` 只看不动。
 
 ```bash
-ln -s "$PWD/skills/anthropic-design" ~/.claude/skills/
-ln -s "$PWD/skills/design-review"    ~/.claude/skills/
-ln -s "$PWD/.claude/agents/design-critic.md" ~/.claude/agents/
+npx github:TbusOS/proofmark doctor      # 装了什么、缺什么
+npx github:TbusOS/proofmark hook        # 接编辑触发的检查
+npx github:TbusOS/proofmark uninstall   # 只删自己装的那些
 ```
 
-skill 本身是纯 markdown，没有运行时依赖。检查链需要 Node 和 Python 3。
+检查那一半是单独的重活：要 Node、Python 3，还要下大约 150MB 的 Chromium，
+而且得从 clone 出来的目录跑——它要在页面旁边写截图、读基线。
+
+```bash
+git clone https://github.com/TbusOS/proofmark.git
+cd proofmark && npm run setup-gate
+bin/design-review examples/looks-fine.html   # 退出码 1,本该如此
+```
+
+npm 上 `proofmark` 是别人的包，所以真要发布的话叫 `proofmark-design`。
+上面那个 `npx github:` 写法不需要发布，而且永远跑 `main`。
 
 ## 上游
 

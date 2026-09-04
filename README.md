@@ -112,21 +112,38 @@ Contrast ratios, class definitions and label sizes have numeric answers. Whether
 ## Install
 
 ```bash
-git clone https://github.com/TbusOS/proofmark.git
-cd proofmark
-npm install          # playwright, axe-core, pixelmatch, pngjs
-bin/design-review examples/looks-fine.html   # should exit 1
+npx github:TbusOS/proofmark install
 ```
 
-To use the skills with Claude Code, symlink them:
+That puts the twelve skills, six critic agents and two commands where Claude
+Code looks for them. It downloads no browser and installs no dependencies,
+because the design languages are markdown and reading them needs nothing. About
+13 seconds.
+
+It will not replace anything it did not install. If a skill of the same name is
+already there — your own work, or a link into your own library — it says so and
+leaves it alone. `--force` overrides that, `--dir=<path>` installs elsewhere,
+`--dry-run` shows what would happen.
 
 ```bash
-ln -s "$PWD/skills/anthropic-design" ~/.claude/skills/
-ln -s "$PWD/skills/design-review"    ~/.claude/skills/
-ln -s "$PWD/.claude/agents/design-critic.md" ~/.claude/agents/
+npx github:TbusOS/proofmark doctor      # what is installed, what is missing
+npx github:TbusOS/proofmark hook        # wire the edit-triggered gate
+npx github:TbusOS/proofmark uninstall   # remove exactly what install put there
 ```
 
-The skills are plain markdown with no runtime dependency. The gate needs Node and Python 3.
+The checking half is a separate, heavier step: it needs Node, Python 3, and a
+Chromium download of roughly 150MB, and it runs from a checkout because it
+writes screenshots and reads baselines next to the pages.
+
+```bash
+git clone https://github.com/TbusOS/proofmark.git
+cd proofmark && npm run setup-gate
+bin/design-review examples/looks-fine.html   # exits 1, as it should
+```
+
+npm's `proofmark` name belongs to an unrelated package, so this ships as
+`proofmark-design` if it is ever published. The `npx github:` form above needs
+no publish and always runs `main`.
 
 ## Upstream
 

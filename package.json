@@ -4,21 +4,40 @@
   "description": "Nine design languages for coding agents, and a gate that fails the output that does not match.",
   "license": "MIT",
   "type": "commonjs",
-  "repository": { "type": "git", "url": "git+https://github.com/TbusOS/proofmark.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TbusOS/proofmark.git"
+  },
   "homepage": "https://doc.tbusos.com/proofmark/",
   "bin": {
     "proofmark": "cli/proofmark.mjs",
     "proofmark-design": "cli/proofmark.mjs"
   },
   "files": [
-    "cli/", "skills/", "hooks/", "bin/", "corpus/", ".claude/",
-    "README.md", "README_zh.md", "LICENSE"
+    "cli/",
+    "skills/",
+    "hooks/",
+    "bin/",
+    "corpus/",
+    "examples/",
+    ".claude/",
+    "README.md",
+    "README_zh.md",
+    "LICENSE"
   ],
   "keywords": [
-    "claude-code", "agent-skills", "design-system", "accessibility",
-    "axe-core", "visual-regression", "design-review", "ai-agents"
+    "claude-code",
+    "agent-skills",
+    "design-system",
+    "accessibility",
+    "axe-core",
+    "visual-regression",
+    "design-review",
+    "ai-agents"
   ],
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "gate": "bin/design-review",
     "facts": "node skills/design-review/scripts/facts.mjs",

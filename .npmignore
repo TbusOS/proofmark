@@ -1,0 +1,15 @@
+# npm falls back to .gitignore when this file is absent, and warns about it on
+# every run. package.json "files" already decides what ships; this trims what is
+# left to the things an install actually needs.
+#
+# The canonical specimens under skills/*/references/canonical/ deliberately stay
+# in: they are what a generator is measured against, so a skill installed
+# without them is a skill that cannot be checked.
+.design-gate/
+.sync-cache/
+shots/
+node_modules/
+demos/
+docs/
+skills/design-review/baselines/
+**/.DS_Store
