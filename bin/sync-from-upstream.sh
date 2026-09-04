@@ -61,14 +61,23 @@ declare -a DIVERGED_PATH=(
   "skills/design-review/scripts/facts.mjs"
   "skills/design-review/scripts/multi-critic.mjs"
   ".claude/agents/design-copy-critic.md"
-  "skills/design-review/baselines/demos__atelier-design__diagrams--as-authored.png"
-  "skills/design-review/baselines/demos__atelier-design__index--as-authored.png"
 )
 declare -a DIVERGED_WHY=(
   "ROSTER and CORE_SURFACES describe this repo's 12 skills and 3 pages, not upstream's 22 and 13"
   "the prose-style file is read from \$DESIGN_LANGUAGE_RULES or \$HOME, not one author's absolute path"
   "same: the absolute path in the 'files to read' list is replaced by an env var and a fallback"
-  "baseline for a demo page this repo does not carry (upstream's repo-story index)"
+)
+
+# Files that must NOT exist here, though they exist upstream. rsync --delete
+# brings them straight back on every --pull, and a printed reminder to remove
+# them again is the kind of instruction that gets followed twice and then
+# forgotten, so --pull deletes them itself.
+declare -a DELETED_PATH=(
+  "skills/design-review/baselines/demos__atelier-design__diagrams--as-authored.png"
+  "skills/design-review/baselines/demos__atelier-design__index--as-authored.png"
+)
+declare -a DELETED_WHY=(
+  "pixel baseline for a demo page this repo does not carry (upstream's repo-story index)"
   "same"
 )
 
@@ -97,6 +106,7 @@ echo
 is_diverged() {
   local p="$1" d
   for d in "${DIVERGED_PATH[@]}"; do [ "$p" = "$d" ] && return 0; done
+  for d in "${DELETED_PATH[@]}"; do [ "$p" = "$d" ] && return 0; done
   return 1
 }
 
@@ -152,11 +162,22 @@ if [ "$MODE" = pull ]; then
   # Re-apply the rename on everything just pulled.
   while IFS= read -r f; do
     LC_ALL=C grep -qI . "$f" 2>/dev/null || continue
-    rename_upstream "$f" > "$f.renamed" && mv "$f.renamed" "$f"
+    # Write back through the existing file rather than moving a new one over
+    # it: `mv` replaces the inode and with it the mode, so every executable in
+    # the synced tree would silently lose its +x on each pull. Redirecting into
+    # the original truncates in place and keeps the mode.
+    rename_upstream "$f" > "$f.renamed" && cat "$f.renamed" > "$f" && rm -f "$f.renamed"
   done < <(for rel in "${SYNCED[@]}"; do [ -e "$REPO/$rel" ] && find "$REPO/$rel" -type f; done)
+  for i in "${!DELETED_PATH[@]}"; do
+    if [ -e "$REPO/${DELETED_PATH[$i]}" ]; then
+      rm -f "$REPO/${DELETED_PATH[$i]}"
+      echo "removed again: ${DELETED_PATH[$i]}  (${DELETED_WHY[$i]})"
+    fi
+  done
   echo "pulled $(( ${#SYNCED[@]} )) path(s) from upstream, upstream name rewritten to this repo's."
   echo
-  echo "Re-apply these deliberate divergences before committing:"
+  echo "Re-apply these deliberate divergences before committing — they are content"
+  echo "edits, so no script can restore them for you:"
   for i in "${!DIVERGED_PATH[@]}"; do
     echo "  · ${DIVERGED_PATH[$i]}"
     echo "      ${DIVERGED_WHY[$i]}"
@@ -166,7 +187,7 @@ fi
 
 echo
 if [ "$drift" -eq 0 ] && [ "$missing" -eq 0 ]; then
-  echo "✓ in step with upstream ($(( ${#SYNCED[@]} )) path(s); ${#DIVERGED_PATH[@]} deliberate divergence(s) skipped)"
+  echo "✓ in step with upstream ($(( ${#SYNCED[@]} )) path(s); ${#DIVERGED_PATH[@]} deliberate divergence(s) and ${#DELETED_PATH[@]} deliberate deletion(s) skipped)"
   exit 0
 fi
 echo "✗ $drift file(s) drifted, $missing path(s) gone upstream"

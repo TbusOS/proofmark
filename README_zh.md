@@ -11,13 +11,13 @@
 ```console
 $ bin/design-review examples/looks-fine.html
 
-━━ [1/4] verify.py (structural)
+━━ [1/5] verify.py (structural)
 design-review verify: OK — 1 file(s) passed (auto-detected skill)
 
-━━ [2/4] visual-audit.mjs (rendered + brand + italic + smell)
+━━ [2/5] visual-audit.mjs (rendered + brand + italic + smell)
 visual-audit: OK  (examples/looks-fine.html)
 
-━━ [3/4] axe-audit.mjs (accessibility · axe-core)
+━━ [3/5] axe-audit.mjs (accessibility · axe-core)
 axe-audit: 1 rule(s), 34 element(s)
   [error] color-contrast (serious) ×34 — Elements must meet minimum color contrast ratio thresholds
       .anth-hero > .anth-container > p > .lang-en
@@ -62,16 +62,17 @@ $ echo $?
 
 ## 那道检查
 
-`bin/design-review <page.html>` 按顺序跑四道，第一道不过就停。
+`bin/design-review <page.html>` 按顺序跑五道，第一道不过就停。
 
 | | 它判什么 |
 |---|---|
 | `verify.py` | 结构：占位符残留、缺 viewport、未定义的 class、BEM 修饰符缺基类、SVG 标签不配对、hero 容器宽度、已经有 token 却写死的颜色 |
 | `visual-audit.mjs` | 渲染后的页面：对比度、品牌存在感、图表标签字号、孤立卡片、SVG 文字可读性、以及借用了别家调色板的颜色 |
 | `axe-audit.mjs` | 可访问性，走 axe-core。四条规则阻断：`color-contrast`、`link-name`、`aria-prohibited-attr`、`svg-img-alt` |
+| `interaction-audit.mjs` | 点开之后才存在的状态：控制台报错、点击之后才出现的 axe 违规、死控件、断锚点、新露出来压住别的内容。其余每一道判的都是同一个静止画面 |
 | `screenshot.mjs` | 整页 PNG，留给人眼那一部分 |
 
-`--pixel` 是第五道，拿渲染像素跟提交过的基线比。它是选配，因为**有意的改版和真正的回退一样会让它报错**。
+`--pixel` 是第六道，拿渲染像素跟提交过的基线比。它是选配，因为**有意的改版和真正的回退一样会让它报错**。
 
 口味另外判。`design-critic` 一个评审员看整页；也可以四个专家并行看——版式、文案、插画、品牌，权重 25/25/20/30。
 

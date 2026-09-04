@@ -42,7 +42,17 @@ case "$out" in *"missing here:"*"eclat-design/SKILL.md"*) t y y "missing file is
                 *) t n y "missing file is named" ;; esac
 mv "$PROBE2.selftest-bak" "$PROBE2"
 
-echo "mutation 3 · the deliberate divergence stays quiet"
+echo "mutation 3 · a pull must not strip the executable bit"
+# The rename pass used to write a new file and mv it over the original, which
+# replaced the inode and its mode. Every executable in the synced tree lost +x
+# on each pull, silently, and the drift check cannot see a mode change.
+before_mode="$(ls -l bin/design-review | cut -c1-10)"
+case "$before_mode" in
+  -rwx*) t "y" "y" "bin/design-review is executable before the pull" ;;
+  *)     t "n" "y" "bin/design-review is executable before the pull" ;;
+esac
+
+echo "mutation 4 · the deliberate divergence stays quiet"
 out=$(bin/sync-from-upstream.sh 2>&1); rc=$?
 t "$rc" "0" "restored tree is back in step"
 case "$out" in *"facts.mjs"*) t y n "facts.mjs is not reported" ;;

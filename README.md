@@ -11,13 +11,13 @@ Here is a page that passes the structural check, passes the rendered visual audi
 ```console
 $ bin/design-review examples/looks-fine.html
 
-━━ [1/4] verify.py (structural)
+━━ [1/5] verify.py (structural)
 design-review verify: OK — 1 file(s) passed (auto-detected skill)
 
-━━ [2/4] visual-audit.mjs (rendered + brand + italic + smell)
+━━ [2/5] visual-audit.mjs (rendered + brand + italic + smell)
 visual-audit: OK  (examples/looks-fine.html)
 
-━━ [3/4] axe-audit.mjs (accessibility · axe-core)
+━━ [3/5] axe-audit.mjs (accessibility · axe-core)
 axe-audit: 1 rule(s), 34 element(s)
   [error] color-contrast (serious) ×34 — Elements must meet minimum color contrast ratio thresholds
       .anth-hero > .anth-container > p > .lang-en
@@ -62,16 +62,17 @@ Twenty-six pages built with these skills and shipped through the gate, under `de
 
 ## The gate
 
-`bin/design-review <page.html>` runs four checks in order and stops at the first failure.
+`bin/design-review <page.html>` runs five checks in order and stops at the first failure.
 
 | | What it decides |
 |---|---|
 | `verify.py` | Structure: placeholders, missing viewport, undefined classes, BEM modifiers without their base, unbalanced SVG, hero container width, hardcoded colours that already have a token |
 | `visual-audit.mjs` | The rendered page: contrast, brand presence, diagram label sizes, orphan cards, SVG text legibility, and colour borrowed from another skill's palette |
 | `axe-audit.mjs` | Accessibility, via axe-core. Four rules block: `color-contrast`, `link-name`, `aria-prohibited-attr`, `svg-img-alt` |
+| `interaction-audit.mjs` | The states a click reaches: console errors, axe violations that appear only after a click, dead controls, broken in-page anchors, content revealed onto other content. Every other check judges the first painted frame |
 | `screenshot.mjs` | Full-page PNG, for the part a person still has to look at |
 
-`--pixel` adds a fifth: rendered pixels against a committed baseline. It is opt-in because it fails on intentional change as readily as on regression.
+`--pixel` adds a sixth: rendered pixels against a committed baseline. It is opt-in because it fails on intentional change as readily as on regression.
 
 Taste is judged separately. `design-critic` reviews a page as one reviewer; four specialists (composition, copy, illustration, brand) can review in parallel, weighted 25/25/20/30.
 

@@ -159,13 +159,13 @@
     </p>
     <div class="console">$ bin/design-review examples/looks-fine.html
 
-<u>━━ [1/4] verify.py (structural)</u>
+<u>━━ [1/5] verify.py (structural)</u>
 design-review verify: <i>OK</i> — 1 file(s) passed (auto-detected skill)
 
-<u>━━ [2/4] visual-audit.mjs (rendered + brand + italic + smell)</u>
+<u>━━ [2/5] visual-audit.mjs (rendered + brand + italic + smell)</u>
 visual-audit: <i>OK</i>  (examples/looks-fine.html)
 
-<u>━━ [3/4] axe-audit.mjs (accessibility · axe-core)</u>
+<u>━━ [3/5] axe-audit.mjs (accessibility · axe-core)</u>
 axe-audit: 1 rule(s), 34 element(s)
   <b>[error] color-contrast (serious) ×34</b>
       .anth-hero &gt; .anth-container &gt; p &gt; .lang-en
@@ -299,8 +299,8 @@ $ echo $?
       <span class="lang-en">What the gate checks</span><span class="lang-zh">那道检查查什么</span>
     </h2>
     <p>
-      <span class="lang-en">Four checks run in order and stop at the first failure.</span>
-      <span class="lang-zh">四道按顺序跑，第一道不过就停。</span>
+      <span class="lang-en">Five checks run in order and stop at the first failure.</span>
+      <span class="lang-zh">五道按顺序跑，第一道不过就停。</span>
     </p>
     <table class="gate-table">
       <thead><tr>
@@ -321,14 +321,18 @@ $ echo $?
           <td><span class="lang-en">Accessibility, via axe-core. Four rules block: color-contrast, link-name, aria-prohibited-attr, svg-img-alt.</span><span class="lang-zh">可访问性，走 axe-core。四条规则阻断：color-contrast、link-name、aria-prohibited-attr、svg-img-alt。</span></td>
         </tr>
         <tr>
+          <td><code>interaction-audit.mjs</code></td>
+          <td><span class="lang-en">The states a click reaches: console errors, axe violations that appear only after a click, dead controls, broken in-page anchors, and content revealed onto other content. Every other check judges the first painted frame.</span><span class="lang-zh">点开之后才存在的状态：控制台报错、点击之后才出现的 axe 违规、死控件、断锚点、新露出来压住别的内容。其余每一道判的都是同一个静止画面。</span></td>
+        </tr>
+        <tr>
           <td><code>screenshot.mjs</code></td>
           <td><span class="lang-en">A full-page PNG, for the part a person still has to look at.</span><span class="lang-zh">整页 PNG，留给人眼那一部分。</span></td>
         </tr>
       </tbody>
     </table>
     <p style="margin-top:var(--space-5);">
-      <span class="lang-en">A fifth is opt-in: <code>--pixel</code> compares rendered pixels against a committed baseline. It stays opt-in because an intentional redesign trips it as readily as a regression does.</span>
-      <span class="lang-zh">第五道是选配：<code>--pixel</code> 拿渲染像素跟提交过的基线比。它一直是选配，因为有意的改版和真正的回退一样会让它报错。</span>
+      <span class="lang-en">A sixth is opt-in: <code>--pixel</code> compares rendered pixels against a committed baseline. It stays opt-in because an intentional redesign trips it as readily as a regression does.</span>
+      <span class="lang-zh">第六道是选配：<code>--pixel</code> 拿渲染像素跟提交过的基线比。它一直是选配，因为有意的改版和真正的回退一样会让它报错。</span>
     </p>
   </div>
 </section>
