@@ -1,6 +1,6 @@
 # proofmark
 
-[中文](README_zh.md)
+[中文](README_zh.md) · **[Live site and worked pages →](https://doc.tbusos.com/proofmark/)**
 
 **Nine design languages a coding agent can write in, and a gate that fails the output that does not match.**
 
@@ -57,7 +57,7 @@ Twenty-six pages built with these skills and shipped through the gate, under `de
 | | |
 |---|---|
 | 9 diagram galleries | One per design language. Architecture, flow, hierarchy, timing waveforms, register bitfields, SoC blocks, call graphs, packet encapsulation. Every figure has a Copy SVG button. |
-| 6 long-form articles | [How one bit is held](demos/anthropic-design/one-bit.html), [How a chip is assembled](demos/anthropic-design/packaging.html), [How a picture reaches a screen](demos/anthropic-design/hardware.html), and three more. Figures carry the argument rather than decorate it. |
+| 6 long-form articles | [How one bit is held](https://doc.tbusos.com/proofmark/demos/anthropic-design/one-bit.html), [How a chip is assembled](https://doc.tbusos.com/proofmark/demos/anthropic-design/packaging.html), [How a picture reaches a screen](https://doc.tbusos.com/proofmark/demos/anthropic-design/hardware.html), and three more. Figures carry the argument rather than decorate it. |
 | 10 technical explainers | Short primer-design pages, one mechanism each: address maps, interconnects, protocol layers, register decoding, scheduler timing. |
 
 ## The gate

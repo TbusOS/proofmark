@@ -1,6 +1,6 @@
 # proofmark
 
-[English](README.md)
+[English](README.md) · **[在线站点与做完的页面 →](https://doc.tbusos.com/proofmark/)**
 
 **九套设计语言给编程 agent 用，外加一道会把不合格产物打回来的验收检查。**
 
@@ -57,7 +57,7 @@ $ echo $?
 | | |
 |---|---|
 | 9 份图例库 | 每套设计语言一份。架构、流程、层次、时序波形、寄存器位域、SoC 框图、调用图、封包分层。每张图带一个 Copy SVG 按钮，能直接抠走。 |
-| 6 篇技术长文 | [一个比特是怎么被存住的](demos/anthropic-design/one-bit.html)、[一颗芯片怎么封装出来](demos/anthropic-design/packaging.html)、[一张画面怎么到屏幕上](demos/anthropic-design/hardware.html)，另有三篇。图是用来承载论证的，不是装饰。 |
+| 6 篇技术长文 | [一个比特是怎么被存住的](https://doc.tbusos.com/proofmark/demos/anthropic-design/one-bit.html)、[一颗芯片怎么封装出来](https://doc.tbusos.com/proofmark/demos/anthropic-design/packaging.html)、[一张画面怎么到屏幕上](https://doc.tbusos.com/proofmark/demos/anthropic-design/hardware.html)，另有三篇。图是用来承载论证的，不是装饰。 |
 | 10 页技术图解 | primer-design 的短页，一页讲一个机制：地址映射、互连拓扑、协议分层、寄存器解码、调度时序。 |
 
 ## 那道检查
