@@ -50,6 +50,8 @@ const ROSTER = {
   'atelier-design': 'design',
   'primer-design': 'design',
 
+  'hardware-3d': 'systems',
+
   'design-review': 'harness',
   'design-planner': 'harness',
   'design-evolve': 'harness',

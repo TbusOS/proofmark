@@ -1,7 +1,7 @@
 {
   "name": "proofmark-design",
   "version": "0.1.0",
-  "description": "Nine design languages for coding agents, and a gate that fails the output that does not match.",
+  "description": "Nine design languages for coding agents, one WebGL2 renderer for hardware explainers, and gates that fail the output that does not match.",
   "license": "MIT",
   "type": "commonjs",
   "repository": {
@@ -33,6 +33,8 @@
     "axe-core",
     "visual-regression",
     "design-review",
+    "webgl",
+    "hardware-explainer",
     "ai-agents"
   ],
   "engines": {

@@ -50,9 +50,30 @@ Each is a complete design language: typography scale, colour tokens, layout rhyt
 
 Fifty-nine reference specimens in all, under `skills/*/references/canonical/`. They render standalone, and all 59 pass the gate, so a generator can be measured against them directly.
 
+## The tenth, which renders
+
+`hardware-3d` is the odd one here. The nine lay out a page; this one renders one — a hand-written WebGL2 engine in a single HTML file with no external dependencies, for explaining how a piece of hardware actually works.
+
+The photographic look is not a shader trick. Park the camera and every frame re-jitters four things — the sub-pixel offset (Gaussian, σ≈0.32px), the aperture disk, the softbox area and the ambient-occlusion kernel — then averages them. Two hundred samples later the soft shadows and the depth of field are sampled rather than approximated. Tilt-shift lays the focal plane along the board instead of perpendicular to the view, so a whole PCB is sharp corner to corner.
+
+The harder half is the data flow, and it is why the skill exists. A 64-bit word is a row of lit and dark cells, not a dot. A bus is 64 parallel wires, not one line. The path runs *inside* the die — logic blocks on the silicon, elevated copper rails above them, which is what the metal layers physically are. Everything advances by clock ticks, with pause, single-step and a speed control, so the reader counts the latency instead of being told it.
+
+It carries four runnable checks of its own, in the same spirit as the design gate:
+
+| Check | Fails when |
+|---|---|
+| `check_selfcontained.sh` | the page references anything outside Google Fonts |
+| `check_pipeline.mjs` | a render pass is missing, GL errors, or a station never converges |
+| `check_realism.mjs` | the page drifts back toward neon-on-navy |
+| `check_perf.mjs` | one accumulation frame exceeds its budget |
+
+The third is the counterpart of the design gate's brand check — a voice measured rather than described. On a normal page 0.4% of pixels are bright and saturated and the median saturation is 0.09. Tint the materials neon and those become 44.8% and 0.63, and the check refuses the page.
+
+**[Worked page: one data word from a DRAM cell to a CPU register](demos/hardware-3d/index.html)** — five stations: the board under studio light, a DRAM package close up, row-and-column addressing inside the die, 64 data lines across the board, and the queue through L3, L2 and L1 into a register.
+
 ## Worked pages
 
-Twenty-six pages built with these skills and shipped through the gate, under `demos/`.
+Twenty-six pages built with the nine and shipped through the gate, under `demos/`.
 
 | | |
 |---|---|
@@ -155,7 +176,7 @@ Contrast ratios, class definitions and label sizes have numeric answers. Whether
 npx github:TbusOS/proofmark install
 ```
 
-That puts the twelve skills, six critic agents and two commands where Claude
+That puts the thirteen skills, six critic agents and two commands where Claude
 Code looks for them. It downloads no browser and installs no dependencies,
 because the design languages are markdown and reading them needs nothing. About
 13 seconds.

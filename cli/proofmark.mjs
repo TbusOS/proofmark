@@ -52,7 +52,7 @@ Flags
   --dry-run      Print what would happen, change nothing.
 
 What gets installed
-  12 skills   nine design languages + design-review / design-planner / design-evolve
+  13 skills   nine design languages + hardware-3d + design-review / design-planner / design-evolve
    6 agents   the critics the review skill dispatches
    2 commands /design-loop and /design-distill
 `;

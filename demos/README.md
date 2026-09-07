@@ -4,6 +4,7 @@ Same story, nine aesthetics. Each demo is a single flagship HTML page showcasing
 
 | Demo | Renders | Character |
 |---|---|---|
+| [`hardware-3d/`](./hardware-3d/index.html) | `skills/hardware-3d/` | Not one of the nine — this one renders instead of laying out. Hand-written WebGL2 in a single file: studio-lit board, DRAM die and CPU die, 200 accumulated samples for real soft shadows and real depth of field. The flow layer draws the data path inside the die on elevated copper rails, advancing by clock ticks you can pause and single-step |
 | [`apple-design/`](./apple-design/index.html) | `skills/apple-design/` | SF Pro, white/pale-gray alternating sections, hero-wide diagrams, full-bleed product tiles, text-link CTAs, dark section |
 | [`anthropic-design/`](./anthropic-design/index.html) | `skills/anthropic-design/` | Warm cream, Poppins + Lora serif, orange filled pills, editorial cards, pull quote, bar chart, 3-tier pricing |
 | [`atelier-design/`](./atelier-design/index.html) | `skills/atelier-design/` | Peach-and-rose mesh wallpaper under ONE frosted app shell, Plus Jakarta Sans, coral→rose gradient orbs, round-cap bars over neutral tracks, one near-black anchor card — and it actually clicks: rails route, tabs switch, tables sort, KPIs count up |

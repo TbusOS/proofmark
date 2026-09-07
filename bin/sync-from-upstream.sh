@@ -43,6 +43,7 @@ SYNCED=(
   skills/eclat-design skills/ember-design skills/glass-design
   skills/lectern-design skills/primer-design skills/sage-design
   skills/design-review skills/design-planner skills/design-evolve
+  skills/hardware-3d demos/hardware-3d
   corpus
   hooks/design-gate
   bin/design-review
@@ -63,7 +64,7 @@ declare -a DIVERGED_PATH=(
   ".claude/agents/design-copy-critic.md"
 )
 declare -a DIVERGED_WHY=(
-  "ROSTER and CORE_SURFACES describe this repo's 12 skills and 3 pages, not upstream's 22 and 13"
+  "ROSTER and CORE_SURFACES describe this repo's 13 skills and 3 pages, not upstream's 23 and 13"
   "the prose-style file is read from \$DESIGN_LANGUAGE_RULES or \$HOME, not one author's absolute path"
 )
 
